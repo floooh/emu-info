@@ -1,0 +1,991 @@
+  System Memory Map for the BBC B, B+, Electron, Master 128, ET and Compact
+  =========================================================================
+                          Compiled by Jon Ripley
+                          Updated by J.G.Harston
+                            Update: 18-Jun-2016
+
+A complete list of BBC computer operating system memory use. Some memory
+locations have different uses on different machines and these these
+differences are described. Unless otherwise stated, 'BBC' includes BBC
+A,B,B+ and 'Master' includes Master 128, Master ET and Master Compact.
+
+
+Page &00 (0) - Zero Page Workspace
+==================================
+&0000-&008F Language workspace
+&0090-&009F Econet private workspace
+&00A0-&00A7 Current NMI owner's workspace
+&00A8-&00AF Transient command space
+&00B0-&00BF Filing system scratch space
+&00C0-&00CF Filing system workspace
+&00D0-&00E1 VDU workspace
+&00E2-&00E3 CFS/RFS private workspace
+&00E4-&00FF General MOS workspace
+
+Econet Workspace at &0090 to &009F
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0090-6 = appears to be unused         Master:
+&0097   =  b7=respond to Escape        &0097
+&0098   =  b7=need to release Tube     &0098  = b7=respond to Escape
+&0099   =                              &0099  = b7=need to release Tube
+&009A/B => Current NetTx control block
+&009C/D => NetRx control blocks
+&009E/F => General NFS workspace
+
+NMI Workspace at &00A0-&00A7
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&00A0   Conventionally used to store previous NMI owner ID
+
+Filing System Workspace at &00B0-&00CF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+When CFS/RFS is the current filing system it uses the workspace as follows
+--------------------------------------------------------------------------
+&00B0-&B3 load address or start address
+&00B4-&B7 exec address or end address   or current block number
+&00B6-&B7                               or next block number
+&00B8-&B9 => error to print or execute
+&00BA     current block flag
+&00BB     current options, set from half of &E3
+&00BC     offset into current block or CRC being loaded
+&00BD     b7=last byte from block
+&00BE-&BF CRC workspace
+&00C0     Buffer flag
+&00C1     Checksum result
+&00C2     Progress flag
+     &00=done/idle, &01=looking for header, &02=
+     &03=fetching header block, &04=fetching data block
+     &05=fetching CRC
+&00C3     Current file handle during *MOTOR call
+&00C4     temp
+&00C6     Baud rate to write to serial port, 5=300, 6=1200
+&00C7     Interblock flag, 6 for save, *OPT3 for bput
+&00C8/&C9 => OSFILE control block
+&00CA     OR'd with &C6 to write to serial control register
+&00CB     CRC bit counter
+&00CC-&CD file size
+&00CE-&CF unused (high word of file size)
+
+VDU Workspace at &00D0 to &00E1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&00D0       VDU Status as read by OSBYTE &75
+    Bit 0 - Printer output status
+        1 - Scrolling disabled
+        2 - Paged mode selected
+        3 - Software scroll
+        4 - Shadow screen mode - Master series only
+        5 - VDU 5 enabled
+        6 - Cursor split status
+        7 - VDU disable status
+&00D1       Graphics pixel mask
+&00D2       Text colour OR mask
+&00D3       Text colour EOR mask
+&00D4       Graphics colour OR mask
+&00D5       Graphics colour EOR mask
+&00D6-&00D7 Graphics character cell
+&00D8-&00D9 Top scan line
+&00DA-&00DF Temporary workspace
+&00E0-&00E1 BBC, Electron: Row multiplication
+            Master: General Workspace
+
+CFS/RFS Workspace at &00E2-&E3
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&00E2 Cassette/RFS filing system status
+    Bit 0 - Input file open
+        1 - Output file open
+        2 - BBC/Electron: Unused, Master: 0=TAPE300, 1=TAPE1200
+        3 - Set if cataloging
+        4 - Unused
+        5 - Unused
+        6 - At end of file
+        7 - End of file warning given
+&00E3 CFS/RFS filing system options
+    Bit 0-3 Options used for BGET/BPUT
+    Bit 4-7 Options used for LOAD/SAVE
+
+General MOS workspace at &00E4-&00FF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&00E4       GSREAD quote flag
+&00E5       GSREAD character accumulator
+&00E6       General OS workspace
+&00E7       Auto repeat countdown timer
+&00E8-&00E9 Input buffer pointer for OSWORD 0
+&00EA       RS423 timeout counter, unused if no RS423
+&00EB       CFS/RFS 'critical' flag, b7=1 if CFS/RFS being used for BGET/BPUT
+&00EC       Internal key number (last)
+&00ED       Internal key number (first)
+&00EE       Internal key number of character to be ignored by OSBYTE &79,
+                also the 1MHz bus paging register RAM copy
+&00EF       OSBYTE/OSWORD A reg value
+&00F0       OSBYTE/OSWORD X reg value
+&00F1       OSBYTE/OSWORD Y reg value
+&00F2-&00F3 OS Text pointer (eg star commands and filenames)
+&00F4       Currently selected ROM
+&00F5       Current PHROM or RFS ROM number
+&00F6-&00F7 PHROM/RFSROM/OSRDSC pointer
+&00F8-&00F9 BBC, Electron: Unused
+            Master: Soft key expansion pointer
+&00FA-&00FB General OS workspace, used by buffer access code in interrupts
+&00FC       Interrupt Temp A reg store
+&00FD-&00FE Error message pointer, initially set to language version string
+&00FF       Escape flag (bit 7)
+
+
+Page &01 (1) - Hardware Stack
+=============================
+&0100-&01FF 6502 Hardware Stack
+
+&0100-      Error message buffer, used by most sideways ROMs to store
+            error messages
+&0128-      Used by the Tube host code to store OSWORD parameter blocks
+
+
+Page &02 (2) - General MOS workspace
+====================================
+&0200-&0235 Vectors
+&0236-&028F OSBYTE variables
+&0290-&02ED MOS variables
+&02E2-&02FF MOS OSFILE control block for *LOAD, *SAVE, *CREATE, *DELETE
+
+MOS Vectors at &0200 to &0235
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0200/1 USERV - User vector, called by *LINE, *CODE, OSWORD >=&E0
+&0202/3 BRKV  - The BRK vector
+&0204/5 IRQ1V - Main interrupt vector
+&0206/7 IRQ2V - Secondary interrupt vector
+&0208/9 CLIV  - Command Line Interpreter vector
+&020A/B BYTEV - OSBYTE (*FX) calls
+&020C/D WORDV - OSWORD calls
+&020E/F WRCHV - Send character to current output stream
+&0210/1 RDCHV - Wait for a character from current input stream
+&0212/3 FILEV - Operate on a whole file, eg loading/saving/delete/etc
+&0214/5 ARGSV - Read/Write arguments on an open file
+&0216/7 BGETV - Read a byte from an open file
+&0218/9 BPUTV - Write a byte to an open file
+&021A/B GBPBV - Read/Write block of data from/to open file or device
+&021C/D FINDV - Open or close a file
+&021E/F FSCV  - Various filing system control calls
+&0220/1 EVNTV - Event handler
+&0222/3 UPTV  - User Print vector
+&0224/5 NETV  - Network Print vector
+&0226/7 VDUV  - Unrecognised VDU commands
+&0228/9 KEYV  - Read the keyboard
+&022A/B INSV  - Insert characters into a buffer
+&022C/D REMV  - Remove characters from a buffer
+&022E/F CNPV  - Count or Purge a buffer
+&0230/1 IND1V - Spare
+&0232/3 IND2V - Spare
+&0234/5 IND3V - Spare
+
+Main MOS (OSBYTE) variables at &0236-&028F
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0236/7 fx166/7 &A6/7 Address of OS variables
+&0238/9 fx168/9 &A8/9 Address of extended vector table
+&023A/B fx170/1 &AA/B Address of ROM info table
+&023C/D fx172/3 &AC/D Address of key translation table
+&023E/F fx174/5 &AE/F Address of VDU variables
+&0240   fx176   &B0   CFS timeout counter, decremented every frame flyback
+&0241   fx177   &B1   Currently selected input stream set with FX2
+&0242   fx178   &B2   BBC, Master: Keyboard semaphore
+                      Electron: undefined
+&0243   fx179   &B3   Primary OSHWM
+&0244   fx180   &B4   Current OSHWM
+&0245   fx181   &B5   RS423 mode
+&0246   fx182   &B6   BBC, Electron: Character definition explosion status
+                      Master: Printer ignore character status
+&0247   fx183   &B7   CFS/RFS switch
+&0248   fx184   &B8   BBC, Master: RAM copy of VIDPROC control register
+                      Election: undefined
+&0249   fx185   &B9   BBC, Master: RAM copy of VIDPROC palette register
+                      Electron: ROM polling semaphore
+&024A   fx186   &BA   ROM active last BRK
+&024B   fx187   &BB   BASIC ROM number
+&024C   fx188   &BC   Current ADC Channel
+&024D   fx189   &BD   Maximum ADC Channel number
+&024E   fx190   &BE   ADC conversion type/accuracy
+&024F   fx191   &BF   RS423 use flag
+&0250   fx192   &C0   RAM copy of RS423 control register
+&0251   fx193   &C1   Flashing colour countdown timer
+&0252   fx194   &C2   Flashing colour space period count set by FX9
+&0253   fx195   &C3   Flashing colour mark period count set by FX10
+&0254   fx196   &C4   Keyboard auto-repeat delay set by FX11
+&0255   fx197   &C5   Keyboard auto-repeat period set by FX12
+&0256   fx198   &C6   *EXEC file handle
+&0257   fx199   &C7   *SPOOL file handle
+&0258   fx200   &C8   ESCAPE, BREAK effect
+&0259   fx201   &C9   Keyboard disable
+&025A   fx202   &CA   Keyboard status byte
+&025B   fx203   &CB   BBC, Master: Serial input buffer extent
+                      Election: ULA interupt mask
+&025C   fx204   &CC   BBC, Master: Serial input supression flag
+                      Electron: Firm key pointer
+&025D   fx205   &CD   BBC, Master: Serial/cassette selection flag
+                      Electron: Firm key string length
+&025E   fx206   &CE   Econet OSBYTE/OSWORD intercept flag
+&025F   fx207   &CF   Econet OSRDCH intercept flag
+&0260   fx208   &D0   Econet OSWRCH intercept flag
+&0261   fx209   &D1   Speech suppression status
+&0262   fx210   &D2   Sound suppression status
+&0263   fx211   &D3   BELL channel number
+&0264   fx212   &D4   BELL envelope number/amplitude
+&0265   fx213   &D5   BELL frequency
+&0266   fx214   &D6   BELL duration
+&0267   fx215   &D7   Startup display and BOOT error options
+&0268   fx216   &D8   Soft key string length
+&0269   fx217   &D9   Screen lines since last page
+&026A   fx218   &DA   256-number of items in VDU queue
+&026B   fx219   &DB   BBC, Master: TAB key character
+                      Electron: external sound flag
+&026C   fx220   &DC   ESCAPE character
+&026D   fx221   &DD   Char &C0-&CF buffer insert interpretation
+&026E   fx222   &DE   Char &D0-&DF buffer insert interpretation
+&026F   fx223   &DF   Char &E0-&EF buffer insert interpretation
+&0270   fx224   &E0   Char &F0-&FF buffer insert interpretation
+&0271   fx225   &E1   Char &80-&8F buffer insert interpretation (FKey)
+&0272   fx226   &E2   Char &90-&9F buffer insert interpretation (Sh+FKey)
+&0273   fx227   &E3   Char &A0-&AF buffer insert interpretation (Ct+FKey)
+&0274   fx228   &E4   Char &B0-&BF buffer insert interpretation (Ct+Sh+FKey)
+&0275   fx229   &E5   ESCAPE key action
+&0276   fx230   &E6   ESCAPE effects
+&0277   fx231   &E7   BBC, Master: User 6522 VIA IRQ mask
+                      Electron: Reserved for 6522 expansion IRQ mask
+&0278   fx232   &E8   BBC, Master: 6850 ACIA IRQ bit mask
+                      Electron: Sound semaphore
+&0279   fx233   &E9   BBC, Master: System 6522 VIA IRQ mask
+                      Electron: Soft key pointer
+&027A   fx234   &EA   Tube presence flag
+&027B   fx235   &EB   Speech processor presence flag
+&027C   fx236   &EC   Output stream character destination, set with FX3
+&027D   fx237   &ED   Cursor key status, set with FX4
+&027E   fx238   &EE   BBC, Electron: unused
+                      Master: Base value for numeric keypad
+&027F   fx239   &EF   Shadow RAM flag
+    The value   0 indicates no shadow screen or shadow screen not selected
+                1 indicates Electron Master RAM Turbo mode
+              128 indicates Electron Master RAM 64K mode
+
+&0280   fx240   &F0   Country code
+&0281   fx241   &F1   User flag location, set with FX1
+&0282   fx242   &F2   BBC, Master: RAM copy of SERPROC control register
+                      Electron: RAM copy of ULA miscellaneous register
+&0283   fx243   &F3   Timer switch state
+&0284   fx244   &F4   Soft key consistancy flag
+&0285   fx245   &F5   Printer destination, set with FX5
+&0286   fx246   &F6   Printer ignore character, set with FX6
+&0287   fx247   &F7   Break Intercept Vector JMP
+&0288   fx248   &F8   Break Intercept Vector address low byte
+&0289   fx249   &F9   Break Intercept Vector address high byte
+&028A   fx250   &FA   BBC, Electron: unused, unless shadow screen present
+                      BBC/Elk+shadow screen, Master: Memory used by VDU
+                        drivers, set with FX112
+&028B   fx251   &FB   BBC, Electron: unused, unless shadow screen present
+                      BBC/Elk+shadow screen, Master: Memory displayed by VDU
+                        hardware, set with FX113
+&028C   fx252   &FC   Current language ROM
+&028D   fx253   &FD   Last BREAK type
+&028E   fx254   &FE   Available RAM BBC: &40 or &80, Electron: &00
+                      Master: Numeric keypad SHIFT key effect
+&028F   fx255   &FF   Startup options
+
+Misc OS workspace at &0290-&02FF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            BBC/Master:                                 Electron:
+&0290       VDU vertical adjust, *TV first parameter    &0290       unused
+&0291       Interlace toggle flag, *TV second parameter
+&0292-&0296 TIME value 1, high byte...low byte          &0291-&0295 TIME value 1
+&0297-&029B TIME value 2, high byte...low byte          &0296-&029A TIME value 2
+&029C-&02A0 OSWORD 3/4 Countdown interval timer value   &029B-&029F OSWORD 3/4 timer
+&02A1-&02B0 Paged ROM type table                        &02A0-&02AF Paged ROM type table
+&02B1-&02B2 INKEY countdown timer                       &02B0-&02B1 INKEY countdown timer
+&02B3       OSWORD 0 maximum line length                &02B2       OSWORD 0 max length
+&02B4       OSWORD 0 minimum character                  &02B3       OSWORD 0 min char
+&02B5       OSWORD 0 maximum character                  &02B4       OSWORD 0 max char
+
+Analogue Conversion workspace at &02B6-&02BE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&02B6       Channel 1 ADC value low
+&02B7       Channel 2 ADC value low
+&02B8       Channel 3 ADC value low
+&02B9       Channel 4 ADC value low
+&02BA       Channel 1 ADC value high
+&02BB       Channel 2 ADC value high
+&02BC       Channel 3 ADC value high
+&02BD       Channel 4 ADC value high
+&02BE       Last ADC channel converted
+
+Various MOS variables at &02BF-&02CE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&02BF-&02C8 MOS Event enable flags                      &02B5-&02BE MOS Event enable flags
+&02C9       Soft key expansion pointer                  &02BF First autorepeat count
+                                                        &02C0 Keyboard
+                                                        &02C1 Keyboard
+                                                        &02C2 Keyboard
+                                                        &02C3 Buffer busy flags
+                                                        &02CC Buffer start indexes
+                                                        &02D5 Buffer end indexes
+
+            BBC:                                    Master:
+&02CA       First auto repeat count     &02C9       First auto repeat count
+&02CB-&02CD Two key rollover workspace  &02CA-&02CD Two key rollover workspace
+&02CE       Sound semaphore             &02CD       Sound semaphore
+
+MOS Buffer Handler variables at &02CF-&02E9
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            BBC:                                    Master:
+&02CF-&02D7 Buffer busy flags           &02CE-&02D6 Buffer busy flags
+&02D8-&02E0 Buffer start indexes        &02D7-&02DF Buffer start indexes
+&02E1-&02E9 Buffer end indexes          &02E0-&02E8 Buffer end indexes
+
+CFS/RFS Opened input file info at &02EA-&02ED           Electron:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~           &02DE-F Block size
+                                                        &02E0   Block flag
+                                                        &02E1   Last input character
+                                                        &02E2-&02F3 OSFILE control block
+                                                        &02F4  ULA
+                                                        &02F5  unused
+                                                        &02F6  unused
+
+            BBC:                                    Master:
+&02EA-&02EB Block size                  &02E9-&02EA Block size
+&02EC       Block flag                  &02EB       Block flag 
+&02ED       Last input character        &02EC       Last input character
+                                        &02FF       unused
+
+MOS OSFILE control block for *LOAD, *SAVE, *CREATE and *DELETE.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&02EE-FF OSFILE control block, BBC
+&02E2-F3 OSFILE control block, Electron
+&02ED-FE OSFILE control block, Master
+
+Electron Analogue Conversion workspace at &02B6-&02BE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&02F7 Last channel converted
+&02F8 Electron ADC channel 1 low
+&02F9 Electron ADC channel 2 low
+&02FA Electron ADC channel 3 low
+&02FB Electron ADC channel 4 low
+&02FC Electron ADC channel 1 high
+&02FD Electron ADC channel 2 high
+&02FE Electron ADC channel 3 high
+&02FF Electron ADC channel 4 high
+
+
+Page &03 (3) - VDU, CFS, Keyboard buffer
+========================================
+&0300-&037F VDU variables
+&0380-&03DF CFS/RFS workspace
+&03E0-&03FF Keyboard buffer
+
+VDU Variables at &0300-&037F
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0300/1     Current graphics window left column in pixels
+&0302/3     Current graphics window bottom row in pixels
+&0304/5     Current graphics window right column in pixels
+&0306/7     Current graphics window top row in pixels
+&0308       Current text window left hand column
+&0309       Current text window bottom row
+&030A       Current text window right hand column
+&030B       Current text window top column
+&030C-F     Current graphics origin in external coordinates
+&0310-3     Current graphics cursor in external coordinates
+&0314-7     Old graphics cursor in external coordinates
+&0318       Current text cursor X
+&0319       Current text cursor Y
+&031A       Line withing current graphics cell of graphics cursor
+&031B       Graphics workspace/VDU queue
+&031F-&0323 VDU queue
+&0324-&0327 Current graphics cursor in internal coordinates
+&0328-&032F Bitmap read from screen by OSBYTE 135
+&0330-&0349 Graphics workspace
+&034A-&034B Text cursor address for 6845
+&034C-&034D Text window width in bytes
+&034E       High byte of bottom of screen memory
+&034F       Bytes per character for current mode
+&0350-&0351 Screen display start address for 6845
+&0352-&0353 Bytes per screen row
+&0354       Screen memory size high byte
+&0355       Current screen mode
+&0356       Memory map type
+              0 - 20K mode
+              1 - 16K mode
+              2 - 10K mode
+              3 - 8K mode
+              4 - 1K mode
+&0357       Foreground text colour
+&0358       Background text colour
+&0359       Foreground graphics colour
+&035A       Background graphics colour
+&035B       Foreground plot mode
+&035C       Background plot mode
+&035D-&035E General VDU jump vector
+&035F       Cursor start register previous setting
+&0360       Number logical colours -1
+&0361       Pixels per byte -1 (zero if text only mode)
+&0362       Leftmost pixel colour mask
+&0363       Rightmost pixel colour mask
+&0364       Text input cursor X
+&0365       Text input cursor Y
+
+            BBC, Electron:                      Master:
+&0366       Teletext output cursor character    VDU 23,16 setting
+&0367       Font explosion flags, b1=224-255    VDU 23,6 dot pattern
+            in RAM, b7=32-63 in RAM
+&0368       Font location, characters 32-63     Current dot pattern state
+&0369       Font location, characters 64-95     Colour plotting ECF pattern
+                                                number or zero
+&036A       Font location, characters 96-127    Graphics foreground ECF
+                                                pattern number or zero
+&036B       Font location, characters 128-159   Graphics background ECF
+                                                pattern number or zero
+&036C       Font location, characters 160-191   b7 set when cursor off
+                                                righthand edge of screen
+&036D       Font location, characters 192-223   Graphics foreground colour
+&036E       Font location, characters 224-225   Graphics background colour
+
+&036F-&037E Palette for colours 0 to 15
+&037F       Unused - used by some Shadow RAM systems
+
+CFS/RFS workspace at &0380-&03DF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0380-&039C BPUT file header:
+              &0380-&038B Filename
+              &038C-&038F Load address
+              &0390-&0393 Exec address
+              &0394-&0395 Block number
+              &0396-&0397 Block length
+              &0398       Block flag
+              &0399-&039C RFS address field
+&039D       BPUT buffer offset
+&039E       BGET buffer offset
+&039F-&03A3 Unused
+&03A4       BBC: GXR flag byte
+&03A5-&03A6 Unused
+&03A7-&03B1 BGET filename
+&03B2-&03D0 Most recent block header read:
+              &03B2-&03BD Filename
+              &03BE-&02C1 Load address
+              &03C2-&03C5 Exec address
+              &03C6-&03C7 Block number
+              &03C8-&03C9 Block length
+              &03CA       Block flag
+              &03CB-&03CE RFS address field
+              &03CF-&03D0 Checksum
+&03D1       Sequential block gap, set by *OPT 3. Set to &19 on Reset
+&03D2-&03DC Filename being searched
+&03DD-&03DE Next BGET block number
+&03DF       Copy of last block flags read
+
+NullKBD, SoftRTC workspace at &03D0-&03DF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&03D0-&03D9 NullKBD intercept if no keyboard present
+&03DA-&03DC TIME backup over Break
+&03DD       b0-b5=BCD day of month, b6-b7=set if date valid
+&03DE       b0-b4=BCD month, b5-b7=day of week
+&03DF       BCD year, if >&7F year is 19xx, else year is 20xx
+
+Keyboard input buffer at &03E0-&03FF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Page &04 (4) to &07 (7) - Current Language Workspace
+====================================================
+This memory is allocated to the current language.
+
+
+Page &08 (8) - SOUND, Printer, Envelope buffers
+===============================================
+&0800-&083F Sound workspace
+&0840-&087F Sound buffers
+&0880-&08BF Printer buffer
+&08C0-&08FF Envelope buffers
+
+Sound workspace at &0800-&083F
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0800-&0803 Unused
+&0804-&0807 Sound queue occupancy flag
+&0808-&080B Current amplitude
+&080C-&080F Number of amplitude phases processed
+&0810-&0813 Absolute pitch value
+&0814-&0817 Number of pitch phases processed
+&0818-&081B Number of steps to process
+&081C-&081F Duration
+&0820-&0823 Interval multiplier
+&0824-&0827 Envelope number/auto repeat parameter
+&0828-&082B Length of remaining note interval
+&082C-&082F Sunc hold parameter
+&0830-&0833 Sound chip current pitch setting
+&0834-&0837 Pitch deviation
+&0838       Number of channels required for sync
+&0839       Current amplitide step
+&083A       Current target amplitude
+&083B       Number of channels on hold for sync
+&083C-&083F Sound parameter calculation workspace
+&083D       Low order frequency parameter as sent to the sound generator
+&083E       High order frequency parameter as sent to the sound generator
+&083F 
+
+Sound buffers at &0840-&087F
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0840-&084F Sound channel 0 buffer
+&0850-&085F Sound channel 1 buffer
+&0860-&086F Sound channel 2 buffer
+&0870-&087F Sound channel 3 buffer
+
+Printer buffer at &0880-&08BF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Envelope buffer at &08C0-&08FF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&08C0-&08FF ENVELOPES 1 to 4
+    &08C0-&08CC Definition of ENVELOPE 1
+    &08CD-&08CF Spare
+    &08D0-&08DC Definition of ENVELOPE 2
+    &08DD-&08DF Spare
+    &08E0-&08EC Definition of ENVELOPE 3
+    &08ED-&08EF Spare
+    &08F0-&08FC Definition of ENVELOPE 4
+    &08FD-&08FF Spare
+
+
+Page &09 (9) - Envelope, Serial output, Speech, transient command buffer
+========================================================================
+&0900-&09BF RS423 output buffer
+&09C0-&09FF Speech buffer
+&0900-&09FF CFS/RFS BPUT sequential output buffer (nb, *not* used by SAVE)
+&0900-&09BF ENVELOPES 5 to 16
+    &0900-&090C Definition of ENVELOPE 5
+    &090D-&090F Spare
+    &0910-&091C Definition of ENVELOPE 6
+    &091D-&091F Spare
+    &0920-&092C Definition of ENVELOPE 7
+    &092D-&092F Spare
+    &0930-&093C Definition of ENVELOPE 8
+    &093D-&093F Spare
+    &0940-&094C Definition of ENVELOPE 9
+    &094D-&094F Spare
+    &0950-&095C Definition of ENVELOPE 10
+    &095D-&095F Spare
+    &0960-&096C Definition of ENVELOPE 11
+    &096D-&096F Spare
+    &0970-&097C Definition of ENVELOPE 12
+    &097D-&097F Spare
+    &0980-&098C Definition of ENVELOPE 13
+    &098D-&098F Spare
+    &0990-&099C Definition of ENVELOPE 14
+    &099D-&099F Spare
+    &09A0-&09AC Definition of ENVELOPE 15
+    &09AD-&09AF Spare
+    &09B0-&09BC Definition of ENVELOPE 16
+    &09BD-&09BF Spare
+
+
+Page &0A (10) - Serial input, transient command buffer
+======================================================
+&0A00-&0AFF Cassette/RS423 input buffer (nb: *not* used by LOAD)
+
+
+Page &0B (11) - Soft key, Econet workspace
+==========================================
+BBC, Electron: Soft key definitions at &0B00-&0BFF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0B00-&0B10 Soft key pointers
+&0B11-&0BFF Soft key definitions
+
+Master: Econet workspace at &0B00-&0BFF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0B01       Station number
+&0B02       File server station number
+&0B03       File server network number
+&0B18       Print server type string
+
+
+Page &0C (12) - Character definitions, Econet workspace
+=======================================================
+&0C00-&0CFF BBC, Electron: Font for ASCII 128-159
+&0C00-&0CFF Master: Econet workspace
+
+
+Page &0D (13) - NMI and ROM workspace
+=====================================
+&0D00-&0D5F NMI handler code and workspace
+&0D60-&0D67 Econet workspace
+&0D68-&0D7F Econet workspace/Electron expansion workspace
+&0D80-&0D91 Econet over other hardware workspace
+&0D92-&0D9E Mouse/trackerball workspace
+&0D9F-&0DEF Extended vector table
+&0DF0-&0DFF Sideways ROMs private workspace address high bytes
+
+NMI handler code and workspace at &0D00-&0D5F
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To use the NMI workspace you MUST claim it with service call 12 by calling
+OSBYTE 143,12,255 and then save the old NMI owner's ID returned in Y. The
+usual place to store the old ID is at &00A0 in the NMI owner's zero page
+workspace. If you are just using the workspace and not using hardware NMIs
+you MUST put a RTI instruction at &0D00 to return any spurious NMIs.
+
+If you receive service call 12 when you own the NMI workspace you MUST
+relinquish it and stop using it. There is no mechanism to refuse to
+relinquish the NMI workspace.
+
+Econet uses &0D20-&0D5F for:
+----------------------------
+&0D20-&0D26 Scout/Acknowledge packet
+            &0D20   Destination Station
+            &0D21   Destination Network
+            &0D22   Source Station (ie, this station)
+            &0D23   Source Network
+            &0D24   Control Byte
+            &0D25   Port
+
+&0D3D-&0D44 Received scout
+            &0D3D   Station
+            &0D3E   Network
+            &0D3F   Control Byte
+            &0D40   Port
+            &0D41-4 Remote Address
+            &0D41-8 Broadcast data
+&0D49
+&0D4A       &40 if receiving a broadcast
+&0D51       Saved System VIA setting
+&0D52
+&0D58-&0D5B Saved RemoteAddress during RemoteCall
+&0D5C
+&0D5D
+&0D5E
+&0D5F
+
+Econet workspace at &0D60-&0D68
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0D60
+&0D61
+&0D62       b7=Transmission in progress
+&0D63       Protection mask
+&0D64       b7=Rx at &00C0, b2=Halted
+&0D65       Saved protection mask
+&0D66       b7=Econet using NMI code
+&0D67       b7=Tube present
+
+Master Econet workspace at &0D68-&0D7F
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0D68 
+&0D69 
+&0D6A 
+&0D6B 
+&0D6C Event &FE flags
+&0D6D
+&0D6E
+&0D6F
+&0D70
+&0D71 Machine Type
+&0D72
+
+Electron Expansion workspace &0D68-&0D6B
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0D68 Port active flags
+&0D69 Serial port control register, RAM copy
+&0D6A Serial port interupt mask
+&0D6B ROMSTROBE at &FC73, RAM copy
+
+Electron ROM manager workspace &0D6C-&0D7F
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0D6C-&0D6F ROM manager workspace
+&0D70-&0D7F ROM manager workspace
+
+Spare at &0D80-&0D91
+~~~~~~~~~~~~~~~~~~~~
+&0D80-&0D91 Econet over other hardware workspace
+
+Mouse/trackerball workspace at &0D92-&0D9E
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0D92-&0D93
+&0D94-&0D95
+&0D96-&0D97
+&0D98
+&0D99-&0D9A Old IRQ1V
+&0D9B-&0D9C Old BYTEV
+&0D9D-&0D9E Old WORDV
+
+Most mouse/trackerball software stores the state in XIRQ1V and XIRQ2V:
+&0DA5       Mouse/trackerball status
+&0DA6-&0DA7 Mouse/trackerball X position
+&0DA8-&0DA9 Mouse/trackerball Y position
+&0DAA       Mouse/trackerball speed
+
+Extended vector table at &0D9F-&0DEF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&0D9F-&0DA1 XUSERV address, ROM number
+&0DA2-&0DA4 XBRKV address, ROM number
+&0DA5-&0DA7 XIRQ1V address, ROM number, also mouse/trackerball state
+&0DA8-&0DAA XIRQ2V address, ROM number, also mouse/trackerball state
+&0DAB-&0DAD XCLIV address, ROM number
+&0DAE-&0DB0 XBYTEV address, ROM number
+&0DB1-&0DB3 XWORDV address, ROM number
+&0DB4-&0DB6 XWRCHV address, ROM number
+&0DB7-&0DB9 XRDCHV address, ROM number
+&0DBA-&0DBC XFILEV address, ROM number
+&0DBD-&0DBF XARGSV address, ROM number
+&0DC0-&0DC2 XBGETV address, ROM number
+&0DC3-&0DC5 XBPUTV address, ROM number
+&0DC6-&0DC8 XGBPBV address, ROM number
+&0DC9-&0DCB XFINDV address, ROM number
+&0DCC-&0DCE XFSCV address, ROM number
+&0DCF-&0DD1 XEVNTV address, ROM number
+&0DD2-&0DD4 XUPTV address, ROM number
+&0DD5-&0DD7 XNETV address, ROM number
+&0DD8-&0DDA XVDUV address, ROM number
+&0DDB-&0DDD XKEYV address, ROM number
+&0DDE-&0DE0 XINSV address, ROM number
+&0DE1-&0DE3 XREMV address, ROM number
+&0DE4-&0DE6 XCNPV address, ROM number
+&0DE7-&0DE9 XIND1V address, ROM number
+&0DEA-&0DEC XIND2V address, ROM number
+&0DED-&0DEF XIND3V address, ROM number
+
+&0DF0-&0DFF Sideways ROMs private workspace address high bytes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ROM x has a single workspace byte at location &DF0+x. It is conventional
+to use this as the high byte of the address of that ROM's private
+workspace, with b7 being used to disable the ROM if set. If b7 is set,
+implying workspace at &8000-&FFFF (ie, in ROM), then the ROM is
+disabled. As the low workspace always starts at &0E00 some ROMs use the
+byte as a page offset from &0E00.
+
+DNFS contains two filing systems in one ROM, so uses both b7 and b6 to
+disable each past. Setting b7 will disable NFS, setting b6 will disable
+DFS.
+
+ROM code written to be able to use both low or high workspace on the
+Master series use b7 and b6 to indicate if they are disabled and the
+location of workspace. If b7=b6=0, or b7=b6=1 then the ROM is enabled,
+with workspace either in low memory at &0000-&3FFF or in hig memory at
+&C000-&FFFF. If b7<>b6, implying workspace at &4000-&BFFF (ie, screen
+RAM or sideways ROM), then the ROM is disabled.
+
+This is sometimes expanded so that %00xxxxxx and %11xxxxxx indicate the
+ROM is enabled and has workspace, and one of %01xxxxxx and %10xxxxxx is
+used to indicate the ROM is enabled but has no workspace, and the other
+indicates the ROM is disabled.
+
+
+Pages &0E (14) to primary OSHWM - Shared and Private Workspace
+==============================================================
+Memory from &0E00 upwards is used by sideways ROMs as shared and private
+(nonshared) workspace. Shared workspace runs from &0E00 up to a maximum
+declared by sideways ROMs on startup in response to service call 1. Each
+ROM's private workspace then runs on from the end of the shared
+workspace and is claimed by sideways ROMs in response to service call 2.
+
+Note that the shared workspace MUST be claimed with service call 10 before
+using it. You MUST NOT use it without claiming it and similarly if you
+receive service call 10 while you own it you MUST relinquish the workspace
+and MUST stop using it.
+
+The DFS OSWORD &7F fails in this regard in that it tramples over locations
+in page &10 (16) when it is called regardless of who actually owns the shared
+workspace. Similarly, the Master DFS OSWORD &7F tramples over page &C2.
+
+
+Primary OSHWM to main OSHWM - Exploded font definitions
+=======================================================
+If the font is exploded on BBC computers, then the font definitions are
+stored after the ROM workspace, raising OSHWM.
+
+
+Main OSHWM to Screen Start - Language data space
+================================================
+The memory between OSHWM (PAGE in BASIC) and the top of language memory
+(HIMEM in BASIC) is allocated to the current language for its data. The
+top of language memory will also be the start of screen memory on
+computers that do not has shadow screen memory.
+
+
+Screen Start to &7F (127) - Screen memory
+=========================================
+Current screen mode bitmap, or character store in MODE 7. In shadow MODEs,
+this memory is "underneath" the memory allocated to the language and does
+not decrease the amount of language space.
+
+
+Pages &80-&BF (128-191) - Sideways ROMs, Andy workspace
+========================================================
+Sideways ROMs at &8000-&BFFF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&8000-&8002 Language entry point
+&8003-&8005 Service entry point
+&8006       ROM type
+&8007       Offset to (C) string
+&8008       Binary version number
+&8009-      ROM title
+[etc]
+
+Master: Andy workspace at &8000-&8FFF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&8000-&800F Start addresses of 16 soft key strings (low bytes)
+&8010       End address (+1) of last string (low byte)
+&8011-&8020 Start addresses of 16 soft key strings (high bytes)
+&8021       End address (+1) of last string (high byte)
+&8022-&83FF Soft key data
+&8400-&87FF VDU driver workspace
+&8800-&88FF VDU variables
+&8900-&8FFF Font definition, characters 32-255
+
+
+Pages &C0-&DF (192-223) - MOS ROM, Hazel workspace
+==================================================
+&C000-&DBFF Sideways ROM workspace
+&DC00-&DCFF OSCLI string buffer
+&DD00-&DEFF Transient command workspace
+&DF00-&DFFF Filing system control variables
+
+Sideways ROM workspace at &C000-&DBFF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Memory from &C000 upwards is used by Master sideways ROMs as shared and
+private (nonshared) workspace. Shared workspace runs from &C000 up to a
+maximum declared by sideways ROMs on startup in response to service call
+&21. Each ROM's private workspace runs from the end of workspace art &DBFF
+downwards and is claimed by sideways ROMs in response to service call &22.
+After shared and private workspace is claimed the MOS informs ROMs of the
+start of the private workspace. This allows a ROM that is using the shared
+space to dynamically extend it into the unclaimed workspace.
+
+The shared workspace must be claimed before using it, and it can only be
+claimed by a filing system by issuing FSC 6 (vectors changing). In this
+regard it is different from the shared workspace in low memory at &0E00
+which can be claimed by any ROM. If you are not a filing system the only
+workspace you can use above &C000 is your private workspace.
+
+The Master DFS OSWORD &7F fails to comply with this requirement in that it
+tramples over locations in page &C2 (194) when it is called regardless of who
+actually owns the shared workspace.
+
+Filing System Control Variables at &DF00-&DFFF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+&DF00       Current filing system number
+&DF01       Active filing system number
+&DF02       Library filing system number
+&DF03       ROM number of current filing system
+&DF04-&DF05 Transient command line address
+&DF06-&DFC1 Up to 17 Filing System information blocks
+             0-7 filing system name, space padded
+             8   lowest handle
+             9   highest handle
+             10  filing system number
+            Information blocks terminated with &00 byte
+&DFC2       b7=GSPRINT inhibit for *TYPE, *LIST
+&DFC3-&DFC4 BCD line number for *BUILD, *APPEND, *LIST
+&DFC5       Last character printed by *LIST, *TYPE for CRLF processing
+&DFC6       Temporary filing system flag
+&DFC7       OSGBPB control block for *MOVE
+&DFD4       Source handle for *MOVE
+&DFD5       Destination handle for *MOVE
+&DFD6       High byte of *MOVE buffer address
+&DFD7       Length of *MOVE buffer in pages
+&DFD8-&DFD9 Pointer to *MOVE destination filename
+&DFDA-&DFDB Copy of FSCV for active filing system
+&DFDC       Copy of ACCCON for *MOVE
+&DFDD       If nonzero, *MOVE had changed ACCCON
+&DFDE-&DFFF Unused
+
+
+Page &FC (252) - FRED I/O Space
+===============================
+See mdfs.net/Docs/Comp/BBC/Hardware/FREDaddrs for full details
+&FC00-&FC03 Byte-Wide Expansion RAM
+&FC08-&FC0F Ample M2000 MIDI Interface (see also FCF0)
+&FC10-&FC13 Teletext Hardware
+&FC14-&FC1F Prestel Hardware
+&FC20-&FC3F SID Interface
+&FC20-&FC27 IEEE Interface
+&FC28-&FC2F Electron Econet
+&FC30-&FC3F Cambridge Ring interface
+&FC40-&FC4F Hard Drive Access
+&FC50-&FC5F
+&FC60-&FC6F Electron Serial
+&FC70-&FC7F Electron expansion
+&FC80-&FC87 LCD Display Control
+&FC88-&FC8F
+&FC90-&FC9F Electron sound and speech
+&FCA0-&FCAF
+&FCB0-&FCBF Electron 6522 VIA expansion
+&FCC0-&FCCF Morley Electronics RAMDisk
+&FCC0-&FCCF Electron floppy disk expansion
+&FCD0-&FCDB
+&FCDC-&FCDF PRES Battery-backed RAM
+&FCE0-&FCEF Electron Tube expansion
+&FCF0-&FCF7 JGH/ETI MIDI Control (see also FC08)
+&FCF8-&FCFB USB port
+&FCFC-&FCFF Page-Wide Expansion RAM
+
+
+Page &FD (253) - JIM I/O Space
+==============================
+See mdfs.net/Docs/Comp/BBC/Hardware/JIMAddrs for full details
+&FD00-&FDFF Page-wide expansion RAM window
+&FD40-&FD4F Torch SASI/SCSI Hard Drive Access
+&FDFE-&FDFF Reset Test vector
+
+
+Page &FE (254) - SHEILA I/O Space
+=================================
+See mdfs.net/Docs/Comp/BBC/Hardware/SHEILAddrs for full details
+&FE00-&FEFF Electron ULA
+&FE00-&FE07 6845 CTRC Video controller
+&FE08-&FE0F 6850 ACIA Serial controller
+&FE10-&FE17 Serial ULA
+&FE18-&FE1F Station ID/NMI Control (BBC B, B+)
+&FE18-&FE1F Analogue-to-Digital Convertor (Master)
+&FE20-&FE2F Video ULA, border control, network NMI control
+&FE24-&FE27 Disk control (Master)
+&FE28-&FE2F 1770 Floppy Disk Controller (Master)
+&FE30-&FE3F Memory control
+&FE40-&FE5F System VIA
+&FE60-&FE7F User VIA
+&FE80-&FE9F 8271 Floppy disk controller
+&FE80-&FE9F 1770 Floppy disk controller and disk control (B/B+)
+&FE80-&FE9F Videodisk SCSI controller (Master)
+&FEA0-&FEBF 6854 ADLC Econet controller
+&FEC0-&FEDF Analogue-to-digital convertor (B/B+)
+&FEC0-&FEDF "Network interface" (not the Econet 6854 ADLC Econet)
+&FEE0-&FEFF Tube control
+
+
+Page &FF (255) - MOS Entry Space
+================================
+&FF00-&FF50 Extended vector jumpblock
+&FF50-&FFB2 MOS Code
+&FFB3-&FFB5 BBC, Electron: MOS code
+            Master: OSWRSC - Write a byte to screen
+&FFB6-&FFB8 VECTAB - Length, address of default vector table
+&FFB9-&FFBB OSRDSC - Read a byte from screem or sideways ROM/RAM
+&FFBC-&FFBE OSVDU  - Raw VDU entry point
+&FFBF-&FFC1 OSEVEN - Generate an event
+&FFC2-&FFC4 GSINIT - Initialise string reading
+&FFC5-&FFC7 GSREAD - Read a character from a string
+&FFC8-&FFCA NVRDCH - Nonvectored OSRDCH
+&FFCB-&FFCD NVWRCH - Nonvectored OSWRCH
+&FFCE-&FFD0 OSFIND - Open or close a file
+&FFD1-&FFD3 OSGBPB - Read or write multiple bytes
+&FFD4-&FFD6 OSBPUT - Put a single byte to a stream
+&FFD7-&FFD9 OSBGET - Get a single byte from a stream
+&FFDA-&FFDC OSARGS - Read information on open files
+&FFDD-&FFDF OSFILE - Perform actions on whole files
+&FFE0-&FFE2 OSRDCH - Read character from input stream
+&FFE3-&FFD6 OSASCI - Write ASCII character to output stream
+&FFE7-&FFEB OSNEWL - Write LF/CR to output stream
+&FFEC-&FFED OSWRCR - Write CR to output stream
+&FFEE-&FFF0 OSWRCH - Write character to output stream
+&FFF1-&FFF3 OSWORD - Perform actions in control block
+&FFF4-&FFF6 OSBYTE - Perform actions in registers
+&FFF7-&FFF9 OSCLI  - Interpret command string
+&FFFA-&FFFB NMIV   - NMI vector
+&FFFC-&FFFD RESETV - RESET vector
+&FFFE-&FFFF IRQV   - IRQ vector
+
+
+References
+==========
+BBC Advanced User Guide, Bray Dickens & Holmes
+The New Advanced User Guide, Dickens & Holmes
+The Electron Advanced User Guide, Dickens & Holmes
+Master Operating System, Atherton
+BBC OS 1.20 Disassembly
+Electron OS 1.00 Disassembly

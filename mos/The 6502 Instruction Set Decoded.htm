@@ -1,0 +1,1400 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<!-- saved from url=(0043)http://www.llx.com/~nparker/a2/opcodes.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+  
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title>The 6502 Instruction Set Decoded</title>
+  <style type="text/css"><!--
+body { color: black; background: white; font-size: 12pt }
+p, h1, h2, h3, td, li { font-family: sans-serif }
+a:link { color: #0000EE }
+a:visited { color: #551A8B }
+table { text-align: center }
+.small { font-size: smaller }
+.p02 { background: lime }
+.pc02 { background: yellow }
+.p816 { background: red }
+  --></style>
+ </head>
+ <body>
+  <p><a href="http://www.llx.com/">LLX</a> &gt;
+   <a href="http://www.llx.com/~nparker/">Neil Parker</a> &gt;
+   <a href="http://www.llx.com/~nparker/a2/index.html">Apple II</a> &gt; 6502 Instruction Set</p>
+  <h1>The 6502/65C02/65C816 Instruction Set Decoded</h1>
+  <h2>Introduction</h2>
+  <p>
+   Though the 6502 instruction set has a number of quirks and
+   irregularities, large portions of it can be broken up into regular
+   patterns.  An understanding of these patterns can be beneficial to
+   authors of assemblers or disassemblers for 6502 code--for example, the
+   Apple II ROM uses the information described below to greatly reduce the
+   size of the instruction tables used by the built-in machine language
+   disassembler.
+  </p>
+  <p>
+   Note that the discussion below assumes a knowledge of 6502
+   programming.  If you're looking for a tutorial or general programming
+   reference for the 6502, I recommend starting at <a href="http://www.6502.org/">6502.org</a>.  There are also some useful
+   documents at <a href="http://www.westerndesigncenter.com/">Western
+   Design Center</a>.
+  </p>
+  <ul>
+   <li><a href="http://www.llx.com/~nparker/a2/opcodes.html#chart">Instruction Chart</a></li>
+   <li><a href="http://www.llx.com/~nparker/a2/opcodes.html#ins02">6502 Instructions</a></li>
+   <li><a href="http://www.llx.com/~nparker/a2/opcodes.html#insc02">65C02 Instructions</a></li>
+   <li><a href="http://www.llx.com/~nparker/a2/opcodes.html#ins816">65C816 Instructions</a></li>
+  </ul>
+  <h2><a name="chart">Instruction Chart</a></h2>
+  <p>
+   Shown below are the instructions of the 6502, 65C02, and 65C816 processors.
+   <span class="p02">GREEN UPPERCASE</span> indicates instructions found on
+   all processors; <span class="pc02">Yellow Mixed Case</span> indicates
+   instructions introduced on the 65C02, and <span class="p816">red
+   lowercase</span> indicates instructions found only on the 65C816.  The bit
+   manipulation instructions found only on the Rockwell and WDC versions of
+   the 65C02 are not included in the table, nor are the "undocumented"
+   instructions of the original 6502.  (However, after noting the search
+   engine strings commonly used to locate this page, I have added discussions
+   of these points below.)
+  </p>
+  <table border="1" class="small">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>x0</td>
+    <td>x1</td>
+    <td>x2</td>
+    <td>x3</td>
+    <td>x4</td>
+    <td>x5</td>
+    <td>x6</td>
+    <td>x7</td>
+    <td>x8</td>
+    <td>x9</td>
+    <td>xA</td>
+    <td>xB</td>
+    <td>xC</td>
+    <td>xD</td>
+    <td>xE</td>
+    <td>xF</td>
+   </tr>
+   <tr>
+    <td>0x</td>
+    <td class="p02">BRK b</td>
+    <td class="p02">ORA (d,X)</td>
+    <td class="p816">cop b</td>
+    <td class="p816">ora d,S</td>
+    <td class="pc02">Tsb d</td>
+    <td class="p02">ORA d</td>
+    <td class="p02">ASL d</td>
+    <td class="p816">ora [d]</td>
+    <td class="p02">PHP</td>
+    <td class="p02">ORA #</td>
+    <td class="p02">ASL A</td>
+    <td class="p816">phd</td>
+    <td class="pc02">Tsb a</td>
+    <td class="p02">ORA a</td>
+    <td class="p02">ASL a</td>
+    <td class="p816">ora al</td>
+   </tr>
+   <tr>
+    <td>1x</td>
+    <td class="p02">BPL r</td>
+    <td class="p02">ORA (d),Y</td>
+    <td class="pc02">Ora (d)</td>
+    <td class="p816">ora (d,S),Y</td>
+    <td class="pc02">Trb d</td>
+    <td class="p02">ORA d,X</td>
+    <td class="p02">ASL d,X</td>
+    <td class="p816">ora [d],Y</td>
+    <td class="p02">CLC</td>
+    <td class="p02">ORA a,Y</td>
+    <td class="pc02">Inc A</td>
+    <td class="p816">tcs</td>
+    <td class="pc02">Trb a</td>
+    <td class="p02">ORA a,X</td>
+    <td class="p02">ASL a,X</td>
+    <td class="p816">ora al,X</td>
+   </tr>
+   <tr>
+    <td>2x</td>
+    <td class="p02">JSR a</td>
+    <td class="p02">AND (d,X)</td>
+    <td class="p816">jsl al</td>
+    <td class="p816">and d,S</td>
+    <td class="p02">BIT d</td>
+    <td class="p02">AND d</td>
+    <td class="p02">ROL d</td>
+    <td class="p816">and [d]</td>
+    <td class="p02">PLP</td>
+    <td class="p02">AND #</td>
+    <td class="p02">ROL A</td>
+    <td class="p816">pld</td>
+    <td class="p02">BIT a</td>
+    <td class="p02">AND a</td>
+    <td class="p02">ROL a</td>
+    <td class="p816">and al</td>
+   </tr>
+   <tr>
+    <td>3x</td>
+    <td class="p02">BMI r</td>
+    <td class="p02">AND (d),Y</td>
+    <td class="pc02">And (d)</td>
+    <td class="p816">and (d,S),Y</td>
+    <td class="pc02">Bit d,X</td>
+    <td class="p02">AND d,X</td>
+    <td class="p02">ROL d,X</td>
+    <td class="p816">and [d],Y</td>
+    <td class="p02">SEC</td>
+    <td class="p02">AND a,Y</td>
+    <td class="pc02">Dec A</td>
+    <td class="p816">tsc</td>
+    <td class="pc02">Bit a,X</td>
+    <td class="p02">AND a,X</td>
+    <td class="p02">ROL a,X</td>
+    <td class="p816">and al,X</td>
+   </tr>
+   <tr>
+    <td>4x</td>
+    <td class="p02">RTI</td>
+    <td class="p02">EOR (d,X)</td>
+    <td class="p816">wdm</td>
+    <td class="p816">eor d,S</td>
+    <td class="p816">mvp s,d</td>
+    <td class="p02">EOR d</td>
+    <td class="p02">LSR d</td>
+    <td class="p816">eor [d]</td>
+    <td class="p02">PHA</td>
+    <td class="p02">EOR #</td>
+    <td class="p02">LSR A</td>
+    <td class="p816">phk</td>
+    <td class="p02">JMP a</td>
+    <td class="p02">EOR a</td>
+    <td class="p02">LSR a</td>
+    <td class="p816">eor al</td>
+   </tr>
+   <tr>
+    <td>5x</td>
+    <td class="p02">BVC r</td>
+    <td class="p02">EOR (d),Y</td>
+    <td class="pc02">Eor (d)</td>
+    <td class="p816">eor (d,S),Y</td>
+    <td class="p816">mvn s,d</td>
+    <td class="p02">EOR d,X</td>
+    <td class="p02">LSR d,X</td>
+    <td class="p816">eor [d],Y</td>
+    <td class="p02">CLI</td>
+    <td class="p02">EOR a,Y</td>
+    <td class="pc02">Phy</td>
+    <td class="p816">tcd</td>
+    <td class="p816">jmp al</td>
+    <td class="p02">EOR a,X</td>
+    <td class="p02">LSR a,X</td>
+    <td class="p816">eor al,X</td>
+   </tr>
+   <tr>
+    <td>6x</td>
+    <td class="p02">RTS</td>
+    <td class="p02">ADC (d,X)</td>
+    <td class="p816">per rl</td>
+    <td class="p816">adc d,S</td>
+    <td class="pc02">Stz d</td>
+    <td class="p02">ADC d</td>
+    <td class="p02">ROR d</td>
+    <td class="p816">adc [d]</td>
+    <td class="p02">PLA</td>
+    <td class="p02">ADC #</td>
+    <td class="p02">ROR A</td>
+    <td class="p816">rtl</td>
+    <td class="p02">JMP (a)</td>
+    <td class="p02">ADC a</td>
+    <td class="p02">ROR a</td>
+    <td class="p816">adc al</td>
+   </tr>
+   <tr>
+    <td>7x</td>
+    <td class="p02">BVS r</td>
+    <td class="p02">ADC (d),Y</td>
+    <td class="pc02">Adc (d)</td>
+    <td class="p816">adc (d,S),Y</td>
+    <td class="pc02">Stz d,X</td>
+    <td class="p02">ADC d,X</td>
+    <td class="p02">ROR d,X</td>
+    <td class="p816">adc [d],Y</td>
+    <td class="p02">SEI</td>
+    <td class="p02">ADC a,Y</td>
+    <td class="pc02">Ply</td>
+    <td class="p816">tdc</td>
+    <td class="pc02">Jmp (a,X)</td>
+    <td class="p02">ADC a,X</td>
+    <td class="p02">ROR a,X</td>
+    <td class="p816">adc al,X</td>
+   </tr>
+   <tr>
+    <td>8x</td>
+    <td class="pc02">Bra r</td>
+    <td class="p02">STA (d,X)</td>
+    <td class="p816">brl rl</td>
+    <td class="p816">sta d,S</td>
+    <td class="p02">STY d</td>
+    <td class="p02">STA d</td>
+    <td class="p02">STX d</td>
+    <td class="p816">sta [d]</td>
+    <td class="p02">DEY</td>
+    <td class="pc02">Bit #</td>
+    <td class="p02">TXA</td>
+    <td class="p816">phb</td>
+    <td class="p02">STY a</td>
+    <td class="p02">STA a</td>
+    <td class="p02">STX a</td>
+    <td class="p816">sta al</td>
+   </tr>
+   <tr>
+    <td>9x</td>
+    <td class="p02">BCC r</td>
+    <td class="p02">STA (d),Y</td>
+    <td class="pc02">Sta (d)</td>
+    <td class="p816">sta (d,S),Y</td>
+    <td class="p02">STY d,X</td>
+    <td class="p02">STA d,X</td>
+    <td class="p02">STX d,Y</td>
+    <td class="p816">sta [d],Y</td>
+    <td class="p02">TYA</td>
+    <td class="p02">STA a,Y</td>
+    <td class="p02">TXS</td>
+    <td class="p816">txy</td>
+    <td class="pc02">Stz a</td>
+    <td class="p02">STA a,X</td>
+    <td class="pc02">Stz a,X</td>
+    <td class="p816">sta al,X</td>
+   </tr>
+   <tr>
+    <td>Ax</td>
+    <td class="p02">LDY #</td>
+    <td class="p02">LDA (d,X)</td>
+    <td class="p02">LDX #</td>
+    <td class="p816">lda d,S</td>
+    <td class="p02">LDY d</td>
+    <td class="p02">LDA d</td>
+    <td class="p02">LDX d</td>
+    <td class="p816">lda [d]</td>
+    <td class="p02">TAY</td>
+    <td class="p02">LDA #</td>
+    <td class="p02">TAX</td>
+    <td class="p816">plb</td>
+    <td class="p02">LDY a</td>
+    <td class="p02">LDA a</td>
+    <td class="p02">LDX a</td>
+    <td class="p816">lda al</td>
+   </tr>
+   <tr>
+    <td>Bx</td>
+    <td class="p02">BCS r</td>
+    <td class="p02">LDA (d),Y</td>
+    <td class="pc02">Lda (d)</td>
+    <td class="p816">lda (d,S),Y</td>
+    <td class="p02">LDY d,X</td>
+    <td class="p02">LDA d,X</td>
+    <td class="p02">LDX d,Y</td>
+    <td class="p816">lda [d],Y</td>
+    <td class="p02">CLV</td>
+    <td class="p02">LDA a,Y</td>
+    <td class="p02">TSX</td>
+    <td class="p816">tyx</td>
+    <td class="p02">LDY a,X</td>
+    <td class="p02">LDA a,X</td>
+    <td class="p02">LDX a,Y</td>
+    <td class="p816">lda al,X</td>
+   </tr>
+   <tr>
+    <td>Cx</td>
+    <td class="p02">CPY #</td>
+    <td class="p02">CMP (d,X)</td>
+    <td class="p816">rep #</td>
+    <td class="p816">cmp d,S</td>
+    <td class="p02">CPY d</td>
+    <td class="p02">CMP d</td>
+    <td class="p02">DEC d</td>
+    <td class="p816">cmp [d]</td>
+    <td class="p02">INY</td>
+    <td class="p02">CMP #</td>
+    <td class="p02">DEX</td>
+    <td class="p816">wai</td>
+    <td class="p02">CPY a</td>
+    <td class="p02">CMP a</td>
+    <td class="p02">DEC a</td>
+    <td class="p816">cmp al</td>
+   </tr>
+   <tr>
+    <td>Dx</td>
+    <td class="p02">BNE r</td>
+    <td class="p02">CMP (d),Y</td>
+    <td class="pc02">Cmp (d)</td>
+    <td class="p816">cmp (d,S),Y</td>
+    <td class="p816">pei d</td>
+    <td class="p02">CMP d,X</td>
+    <td class="p02">DEC d,X</td>
+    <td class="p816">cmp [d],Y</td>
+    <td class="p02">CLD</td>
+    <td class="p02">CMP a,Y</td>
+    <td class="pc02">Phx</td>
+    <td class="p816">stp</td>
+    <td class="p816">jml (a)</td>
+    <td class="p02">CMP a,X</td>
+    <td class="p02">DEC a,X</td>
+    <td class="p816">cmp al,X</td>
+   </tr>
+   <tr>
+    <td>Ex</td>
+    <td class="p02">CPX #</td>
+    <td class="p02">SBC (d,X)</td>
+    <td class="p816">sep #</td>
+    <td class="p816">sbc d,S</td>
+    <td class="p02">CPX d</td>
+    <td class="p02">SBC d</td>
+    <td class="p02">INC d</td>
+    <td class="p816">sbc [d]</td>
+    <td class="p02">INX</td>
+    <td class="p02">SBC #</td>
+    <td class="p02">NOP</td>
+    <td class="p816">xba</td>
+    <td class="p02">CPX a</td>
+    <td class="p02">SBC a</td>
+    <td class="p02">INC a</td>
+    <td class="p816">sbc al</td>
+   </tr>
+   <tr>
+    <td>Fx</td>
+    <td class="p02">BEQ r</td>
+    <td class="p02">SBC (d),Y</td>
+    <td class="pc02">Sbc (d)</td>
+    <td class="p816">sbc (d,S),Y</td>
+    <td class="p816">pea a</td>
+    <td class="p02">SBC d,X</td>
+    <td class="p02">INC d,X</td>
+    <td class="p816">sbc [d],Y</td>
+    <td class="p02">SED</td>
+    <td class="p02">SBC a,Y</td>
+    <td class="pc02">Plx</td>
+    <td class="p816">xce</td>
+    <td class="p816">jsr (a,X)</td>
+    <td class="p02">SBC a,X</td>
+    <td class="p02">INC a,X</td>
+    <td class="p816">sbc al,X</td>
+   </tr>
+  </tbody></table>
+  <h2><a name="ins02">6502 Instructions</a></h2>
+  <p>
+   Most instructions that explicitly reference memory locations have bit
+   patterns of the form <b>aaabbbcc</b>.  The <b>aaa</b> and <b>cc</b> bits
+   determine the opcode, and the <b>bbb</b> bits determine the addressing mode.
+  </p>
+  <p>
+   Instructions with <b>cc</b> = <b>01</b> are the most regular, and are
+   therefore considered first.  The <b>aaa</b> bits determine the opcode
+   as follows:
+  </p>
+  <table border="1">
+   <tbody><tr><td><b>aaa</b></td><td>opcode</td></tr>
+   <tr><td>000</td><td>ORA</td></tr>
+   <tr><td>001</td><td>AND</td></tr>
+   <tr><td>010</td><td>EOR</td></tr>
+   <tr><td>011</td><td>ADC</td></tr>
+   <tr><td>100</td><td>STA</td></tr>
+   <tr><td>101</td><td>LDA</td></tr>
+   <tr><td>110</td><td>CMP</td></tr>
+   <tr><td>111</td><td>SBC</td></tr>
+  </tbody></table>
+  <p>
+   And the addressing mode (<b>bbb</b>) bits:
+  </p>
+  <table border="1">
+   <tbody><tr><td><b>bbb</b></td><td>addressing mode</td></tr>
+   <tr><td>000</td><td>(zero page,X)</td></tr>
+   <tr><td>001</td><td>zero page</td></tr>
+   <tr><td>010</td><td>#immediate</td></tr>
+   <tr><td>011</td><td>absolute</td></tr>
+   <tr><td>100</td><td>(zero page),Y</td></tr>
+   <tr><td>101</td><td>zero page,X</td></tr>
+   <tr><td>110</td><td>absolute,Y</td></tr>
+   <tr><td>111</td><td>absolute,X</td></tr>
+  </tbody></table>
+  <p>
+   Putting it all together:
+  </p>
+  <table border="1">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>ORA</td>
+    <td>AND</td>
+    <td>EOR</td>
+    <td>ADC</td>
+    <td>STA</td>
+    <td>LDA</td>
+    <td>CMP</td>
+    <td>SBC</td>
+   </tr>
+   <tr>
+    <td>(zp,X)</td>
+    <td>01</td>
+    <td>21</td>
+    <td>41</td>
+    <td>61</td>
+    <td>81</td>
+    <td>A1</td>
+    <td>C1</td>
+    <td>E1</td>
+   </tr>
+   <tr>
+    <td>zp</td>
+    <td>05</td>
+    <td>25</td>
+    <td>45</td>
+    <td>65</td>
+    <td>85</td>
+    <td>A5</td>
+    <td>C5</td>
+    <td>E5</td>
+   </tr>
+   <tr>
+    <td>#</td>
+    <td>09</td>
+    <td>29</td>
+    <td>49</td>
+    <td>69</td>
+    <td>&nbsp;</td>
+    <td>A9</td>
+    <td>C9</td>
+    <td>E9</td>
+   </tr>
+   <tr>
+    <td>abs</td>
+    <td>0D</td>
+    <td>2D</td>
+    <td>4D</td>
+    <td>6D</td>
+    <td>8D</td>
+    <td>AD</td>
+    <td>CD</td>
+    <td>ED</td>
+   </tr>
+   <tr>
+    <td>(zp),Y</td>
+    <td>11</td>
+    <td>31</td>
+    <td>51</td>
+    <td>71</td>
+    <td>91</td>
+    <td>B1</td>
+    <td>D1</td>
+    <td>F1</td>
+   </tr>
+   <tr>
+    <td>zp,X</td>
+    <td>15</td>
+    <td>35</td>
+    <td>55</td>
+    <td>75</td>
+    <td>95</td>
+    <td>B5</td>
+    <td>D5</td>
+    <td>F5</td>
+   </tr>
+   <tr>
+    <td>abs,Y</td>
+    <td>19</td>
+    <td>39</td>
+    <td>59</td>
+    <td>79</td>
+    <td>99</td>
+    <td>B9</td>
+    <td>D9</td>
+    <td>F9</td>
+   </tr>
+   <tr>
+    <td>abs,X</td>
+    <td>1D</td>
+    <td>3D</td>
+    <td>5D</td>
+    <td>7D</td>
+    <td>9D</td>
+    <td>BD</td>
+    <td>DD</td>
+    <td>FD</td>
+   </tr>
+  </tbody></table>
+  <p>
+   The only irregularity is the absence of the nonsensical immediate STA
+   instruction.
+  </p>
+  <p>
+   Next we consider the <b>cc</b> = <b>10</b> instructions.  These have a
+   completely different set of opcodes:
+  </p>
+  <table border="1">
+   <tbody><tr><td><b>aaa</b></td><td>opcode</td></tr>
+   <tr><td>000</td><td>ASL</td></tr>
+   <tr><td>001</td><td>ROL</td></tr>
+   <tr><td>010</td><td>LSR</td></tr>
+   <tr><td>011</td><td>ROR</td></tr>
+   <tr><td>100</td><td>STX</td></tr>
+   <tr><td>101</td><td>LDX</td></tr>
+   <tr><td>110</td><td>DEC</td></tr>
+   <tr><td>111</td><td>INC</td></tr>
+  </tbody></table>
+  <p>
+   The addressing modes are similar to the <b>01</b> case, but not quite
+   the same:
+  </p>
+  <table border="1">
+   <tbody><tr><td><b>bbb</b></td><td>addressing mode</td></tr>
+   <tr><td>000</td><td>#immediate</td></tr>
+   <tr><td>001</td><td>zero page</td></tr>
+   <tr><td>010</td><td>accumulator</td></tr>
+   <tr><td>011</td><td>absolute</td></tr>
+   <tr><td>101</td><td>zero page,X</td></tr>
+   <tr><td>111</td><td>absolute,X</td></tr>
+  </tbody></table>
+  <p>
+   Note that <b>bbb</b> = <b>100</b> and <b>110</b> are missing.  Also,
+   with STX and LDX, "zero page,X" addressing becomes "zero page,Y", and
+   with LDX, "absolute,X" becomes "absolute,Y".
+  </p>
+  <p>
+   These fit together like this:
+  </p>
+  <table border="1">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>ASL</td>
+    <td>ROL</td>
+    <td>LSR</td>
+    <td>ROR</td>
+    <td>STX</td>
+    <td>LDX</td>
+    <td>DEC</td>
+    <td>INC</td>
+   </tr>
+   <tr>
+    <td>#</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>A2</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+   </tr>
+   <tr>
+    <td>zp</td>
+    <td>06</td>
+    <td>26</td>
+    <td>46</td>
+    <td>66</td>
+    <td>86</td>
+    <td>A6</td>
+    <td>C6</td>
+    <td>E6</td>
+   </tr>
+   <tr>
+    <td>A</td>
+    <td>0A</td>
+    <td>2A</td>
+    <td>4A</td>
+    <td>6A</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+   </tr>
+   <tr>
+    <td>abs</td>
+    <td>0E</td>
+    <td>2E</td>
+    <td>4E</td>
+    <td>6E</td>
+    <td>8E</td>
+    <td>AE</td>
+    <td>CE</td>
+    <td>EE</td>
+   </tr>
+   <tr>
+    <td>zp,X/zp,Y</td>
+    <td>16</td>
+    <td>36</td>
+    <td>56</td>
+    <td>76</td>
+    <td>96</td>
+    <td>B6</td>
+    <td>D6</td>
+    <td>F6</td>
+   </tr>
+   <tr>
+    <td>abs,X/abs,Y</td>
+    <td>1E</td>
+    <td>3E</td>
+    <td>5E</td>
+    <td>7E</td>
+    <td>&nbsp;</td>
+    <td>BE</td>
+    <td>DE</td>
+    <td>FE</td>
+   </tr>
+  </tbody></table>
+  <p>
+   Most of the gaps in this table are easy to understand.  Immediate mode
+   makes no sense for any instruction other than LDX, and accumulator mode
+   for DEC and INC didn't appear until the 65C02.  The slots that "STX A"
+   and "LDX A" would occupy are taken by TXA and TAX respectively, which is
+   exactly what one would expect.  The only inexplicable gap is the
+   absence of a "STX abs,Y" instruction.
+  </p>
+  <p>
+   Next, the <b>cc</b> = <b>00</b> instructions.  Again, the opcodes are
+   different:
+  </p>
+  <table border="1">
+   <tbody><tr><td><b>aaa</b></td><td>opcode</td></tr>
+   <tr><td>001</td><td>BIT</td></tr>
+   <tr><td>010</td><td>JMP</td></tr>
+   <tr><td>011</td><td>JMP (abs)</td></tr>
+   <tr><td>100</td><td>STY</td></tr>
+   <tr><td>101</td><td>LDY</td></tr>
+   <tr><td>110</td><td>CPY</td></tr>
+   <tr><td>111</td><td>CPX</td></tr>
+  </tbody></table>
+  <p>
+   It's debatable whether the JMP instructions belong in this
+   list...I've included them because they <em>do</em> seem to fit,
+   provided one considers the indirect JMP a separate opcode rather than
+   a different addressing mode of the absolute JMP.
+  </p>
+  <p>
+   The addressing modes are the same as the <b>10</b> case, except that
+   accumulator mode is missing.
+  </p>
+  <table border="1">
+   <tbody><tr><td><b>bbb</b></td><td>addressing mode</td></tr>
+   <tr><td>000</td><td>#immediate</td></tr>
+   <tr><td>001</td><td>zero page</td></tr>
+   <tr><td>011</td><td>absolute</td></tr>
+   <tr><td>101</td><td>zero page,X</td></tr>
+   <tr><td>111</td><td>absolute,X</td></tr>
+  </tbody></table>
+  <p>
+   And here's how they fit together:
+  </p>
+  <table border="1">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>BIT</td>
+    <td>JMP</td>
+    <td>JMP()</td>
+    <td>STY</td>
+    <td>LDY</td>
+    <td>CPY</td>
+    <td>CPX</td>
+   </tr>
+   <tr>
+    <td>#</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>A0</td>
+    <td>C0</td>
+    <td>E0</td>
+   </tr>
+   <tr>
+    <td>zp</td>
+    <td>24</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>84</td>
+    <td>A4</td>
+    <td>C4</td>
+    <td>E4</td>
+   </tr>
+   <tr>
+    <td>abs</td>
+    <td>2C</td>
+    <td>4C</td>
+    <td>6C</td>
+    <td>8C</td>
+    <td>AC</td>
+    <td>CC</td>
+    <td>EC</td>
+   </tr>
+   <tr>
+    <td>zp,X</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>94</td>
+    <td>B4</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+   </tr>
+   <tr>
+    <td>abs,X</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>BC</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+   </tr>
+  </tbody></table>
+  <p>
+   Some of the gaps in this table are understandable (e.g. the lack of an
+   immediate mode for JMP, JMP(), and STY), but others are not
+   (e.g. the absence of "zp,X" for CPY and CPX, and the absence of "abs,X"
+   for STY, CPY, and CPX).  Note that if accumulator mode (<b>bbb</b> =
+   <b>010</b>) were available, "LDY A" would be A8, which falls in the
+   slot occupied by TAY, but the pattern breaks down elsewhere--TYA is 98,
+   rather than 88, which we would expect it to be if it corresponded to
+   the nonexistant "STY A".
+  </p>
+  <p>
+   No instructions have the form <b>aaabbb11</b>.
+  </p>
+  <p>
+   The conditional branch instructions all have the form <b>xxy10000</b>.
+   The flag indicated by <b>xx</b> is compared with <b>y</b>, and the
+   branch is taken if they are equal.
+  </p>
+  <table border="1">
+   <tbody><tr><td><b>xx</b></td><td>flag</td></tr>
+   <tr><td>00</td><td>negative</td></tr>
+   <tr><td>01</td><td>overflow</td></tr>
+   <tr><td>10</td><td>carry</td></tr>
+   <tr><td>11</td><td>zero</td></tr>
+  </tbody></table>
+  <p>
+   This gives the following branches:
+  </p>
+  <table border="1">
+   <tbody><tr><td>BPL</td><td>BMI</td><td>BVC</td><td>BVS</td><td>BCC</td><td>BCS</td>
+   <td>BNE</td><td>BEQ</td></tr>
+   <tr><td>10</td><td>30</td><td>50</td><td>70</td><td>90</td><td>B0</td>
+   <td>D0</td><td>F0</td>
+  </tr></tbody></table>
+  <p>
+   The remaining instructions are probably best considered simply by
+   listing them.  Here are the interrupt and subroutine instructions:
+  </p>
+  <table border="1">
+   <tbody><tr><td>BRK</td><td>JSR abs</td><td>RTI</td><td>RTS</td></tr>
+   <tr><td>00</td><td>20</td><td>40</td><td>60</td>
+  </tr></tbody></table>
+  <p>
+   (JSR is the only absolute-addressing instruction that doesn't fit the
+   <b>aaabbbcc</b> pattern.)
+  </p>
+  <p>
+   Other single-byte instructions:
+  </p>
+  <table border="1" style="margin-bottom: 10px">
+   <tbody><tr>
+    <td>PHP</td>
+    <td>PLP</td>
+    <td>PHA</td>
+    <td>PLA</td>
+    <td>DEY</td>
+    <td>TAY</td>
+    <td>INY</td>
+    <td>INX</td>
+   </tr>
+   <tr>
+    <td>08</td>
+    <td>28</td>
+    <td>48</td>
+    <td>68</td>
+    <td>88</td>
+    <td>A8</td>
+    <td>C8</td>
+    <td>E8</td>
+   </tr>
+  </tbody></table>
+  <table border="1" style="margin-bottom: 10px">
+   <tbody><tr>
+    <td>CLC</td>
+    <td>SEC</td>
+    <td>CLI</td>
+    <td>SEI</td>
+    <td>TYA</td>
+    <td>CLV</td>
+    <td>CLD</td>
+    <td>SED</td>
+   </tr>
+   <tr>
+    <td>18</td>
+    <td>38</td>
+    <td>58</td>
+    <td>78</td>
+    <td>98</td>
+    <td>B8</td>
+    <td>D8</td>
+    <td>F8</td>
+   </tr>
+  </tbody></table>
+  <table border="1">
+   <tbody><tr>
+    <td>TXA</td>
+    <td>TXS</td>
+    <td>TAX</td>
+    <td>TSX</td>
+    <td>DEX</td>
+    <td>NOP</td>
+   </tr>
+   <tr>
+    <td>8A</td>
+    <td>9A</td>
+    <td>AA</td>
+    <td>BA</td>
+    <td>CA</td>
+    <td>EA</td>
+   </tr>
+  </tbody></table>
+  <h3>"Undocumented" 6502 instructions</h3>
+  <p>
+   The above-described instructions (the ones shown in <span class="p02">GREEN UPPERCASE</span> in the table at the top of this
+   page) are the only ones documented in any manufacturer's official data
+   sheets.  The question often arises, "What do all those other leftover
+   bytes do if you try to execute them as instructions?"
+  </p><p>
+   In general the behavior of instructions other than those listed above
+   cannot be described exactly, as they tend to be somewhat unstable, and
+   do not always behave the same way on chips made by different
+   manufacturers, and some instructions don't even behave the same way
+   twice on the same chip.  Those looking for a precise listing of
+   "undocumented" instruction behaviors will have to look elsewhere, and
+   should beware that the behaviors described on other web pages may be
+   specific to 6502s made by a particular (often unspecified) manufacturer.
+  </p>
+  <p>
+   However, there are some facts that seem to be common across all 6502s.
+   The most insteresting case is the <b>cc</b> = <b>11</b> instructions:
+   these execute the adjacent <b>cc</b> = <b>01</b> and <b>cc</b> =
+   <b>10</b> instructions <em>simultaneously</em>.  For example, <b>AF</b>
+   executes <b>AD</b> ("LDA absolute") and <b>AE</b> ("LDX absolute") at
+   the same time, putting the same value in both the accumulator and the X
+   register.
+  </p>
+  <p>
+   In some cases the <b>01</b> and <b>10</b> instructions are
+   incompatible.  For example, <b>8F</b> executes <b>8D</b> ("STA
+   absolute") and <b>8E</b> ("STX absolute") at the same time.  So which
+   register actually gets written to memory?  Usually some mixture of the
+   two, in a manner that varies depending on who made the 6502, when it was
+   made, the phase of the moon, and other unpredictable variables.
+  </p>
+  <p>
+   The behavior of the <b>11</b> instructions is especially problematic in
+   those cases where the adjacent <b>01</b> or <b>10</b> instruction is also
+   undocumented.  Sometimes you can get a partial idea of what happens by
+   looking at what the missing <b>01</b> or <b>10</b> instruction would be
+   if that opcode/addressing mode combination weren't missing.
+   <b>Xxxx1011</b> instructions are also problematic--some of these seem
+   to mix not only the adjacent <b>01</b> and <b>10</b> instructions, but
+   also the immediate mode of the corresponding <b>10</b> instruction.
+  </p>
+  <p>
+   Most of the missing <b>00</b>, <b>01</b>, and <b>10</b> instructions
+   seem to behave like NOPs, but using the addressing mode indicated by
+   the <b>bbb</b> bits.  But apparently this isn't always reliable--there
+   are reports of some of these instructions occasionally locking up the
+   processor.
+  </p>
+  <p>
+   Instructions of the form <b>xxxx0010</b> usually lock up the processor,
+   so that a reset is required to recover.  The instructions <b>82</b>,
+   <b>C2</b>, and <b>E2</b> (corresponding to the nonexistant immediate
+   mode of STX, DEC, and INC) may sometimes behave as two-byte NOPs, but don't
+   count on it.
+  </p>
+  <h2><a name="insc02">65C02 Instructions</a></h2>
+  <p>
+   The new instructions of the 65C02 are much less logical than those
+   listed above.  The designers of the 65C02 apparently chose to continue
+   leaving the <b>cc</b> = <b>11</b> instructions empty, and this didn't
+   leave much space for new instructions.  Some instructions landed in
+   logical places, but others had to be assigned wherever there was room,
+   whether it made sense or not.
+  </p>
+  <p>
+   The new zero-page indirect addressing mode fills the previously-unused
+   <b>bbb</b> = <b>100</b> slot of the <b>cc</b> = <b>10</b> instructions,
+   but the opcodes are those of the <b>cc</b> = <b>01</b> instructions.
+  </p>
+  <table border="1">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>ORA</td>
+    <td>AND</td>
+    <td>EOR</td>
+    <td>ADC</td>
+    <td>STA</td>
+    <td>LDA</td>
+    <td>CMP</td>
+    <td>SBC</td>
+   </tr>
+   <tr>
+    <td>(zp)</td>
+    <td>12</td>
+    <td>32</td>
+    <td>52</td>
+    <td>72</td>
+    <td>92</td>
+    <td>B2</td>
+    <td>D2</td>
+    <td>F2</td>
+   </tr>
+  </tbody></table>
+  <p>
+   "JMP (abs,X)" is right where it ought to be (<b>011 111 00</b>), if one
+   continues to regard the indirect JMP as a separate opcode from the
+   absolute JMP:
+  </p>
+  <table border="1">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>JMP()</td>
+   </tr>
+   <tr>
+    <td>abs,X</td>
+    <td>7C</td>
+   </tr>
+  </tbody></table>
+  <p>
+   "BIT zp,X" and "BIT abs,X" ended up exactly where one would expect them
+   to be, but "BIT #" had to be moved because its slot was already taken by
+   JSR:
+  </p>
+  <table border="1">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>BIT</td>
+   </tr>
+   <tr>
+    <td>#</td>
+    <td>89</td>
+   </tr>
+   <tr>
+    <td>zp,X</td>
+    <td>34</td>
+   </tr>
+   <tr>
+    <td>abs,X</td>
+    <td>3C</td>
+   </tr>
+  </tbody></table>
+  <p>
+   TSB ended up in a reasonable place (<b>000bbb00</b>):
+  </p>
+  <table border="1">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>TSB</td>
+   </tr>
+   <tr>
+    <td>zp</td>
+    <td>04</td>
+   </tr>
+   <tr>
+    <td>abs</td>
+    <td>0C</td>
+   </tr>
+  </tbody></table>
+  <p>
+   But the above assigments exhaust the logical possibilities for
+   opcodes that explicity reference memory locations, so TRB and STZ had to
+   be put wherever room could be found:
+  </p>
+  <table border="1">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>TRB</td>
+    <td>STZ</td>
+   </tr>
+   <tr>
+    <td>zp</td>
+    <td>14</td>
+    <td>64</td>
+   </tr>
+   <tr>
+    <td>abs</td>
+    <td>1C</td>
+    <td>9C</td>
+   </tr>
+   <tr>
+    <td>zp,X</td>
+    <td>&nbsp;</td>
+    <td>74</td>
+   </tr>
+   <tr>
+    <td>abs,X</td>
+    <td>&nbsp;</td>
+    <td>9E</td>
+   </tr>
+  </tbody></table>
+  <p>
+   That leaves the relative branch instruction
+  </p>
+  <table border="1">
+   <tbody><tr>
+    <td>BRA</td>
+   </tr>
+   <tr>
+    <td>80</td>
+   </tr>
+  </tbody></table>
+  <p>
+   and the single-byte instructions:
+  </p>
+  <table border="1">
+   <tbody><tr>
+    <td>INC A</td>
+    <td>DEC A</td>
+    <td>PHY</td>
+    <td>PLY</td>
+    <td>PHX</td>
+    <td>PLX</td>
+   </tr>
+   <tr>
+    <td>1A</td>
+    <td>3A</td>
+    <td>5A</td>
+    <td>7A</td>
+    <td>DA</td>
+    <td>FA</td>
+   </tr>
+  </tbody></table>
+  <h3>Additional instructions found on some 65C02s</h3>
+  <p>
+   Actually, I lied when I said above that the designers of the 65C02
+   chose to leave the <b>cc</b> = <b>11</b> instructions unused.  On
+   65C02s made by Rockwell and by WDC, some of these instructions are used
+   for additional bit setting, clearing, and testing instructions.  These
+   instructions are missing on 65C02s made by other manufacturers.  (And
+   since this page is part of a set of Apple II-related pages, I should
+   point out that Apple never shipped any computers that used Rockwell or
+   WDC 65C02s, so none of the instructions in this section are available
+   on an unmodified Apple II.)
+  </p>
+  <p>
+   The bit set and clear instructions have the form <b>xyyy0111</b>,
+   where <b>x</b> is 0 to clear a bit or 1 to set it, and <b>yyy</b> is
+   which bit at the memory location to set or clear.
+  </p>
+  <table border="1" style="margin-bottom: 10px">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>RMB0</td>
+    <td>RMB1</td>
+    <td>RMB2</td>
+    <td>RMB3</td>
+    <td>RMB4</td>
+    <td>RMB5</td>
+    <td>RMB6</td>
+    <td>RMB7</td>
+   </tr>
+   <tr>
+    <td>zp</td>
+    <td>07</td>
+    <td>17</td>
+    <td>27</td>
+    <td>37</td>
+    <td>47</td>
+    <td>57</td>
+    <td>67</td>
+    <td>77</td>
+   </tr>
+  </tbody></table>
+  <table border="1">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>SMB0</td>
+    <td>SMB1</td>
+    <td>SMB2</td>
+    <td>SMB3</td>
+    <td>SMB4</td>
+    <td>SMB5</td>
+    <td>SMB6</td>
+    <td>SMB7</td>
+   </tr>
+   <tr>
+    <td>zp</td>
+    <td>87</td>
+    <td>97</td>
+    <td>A7</td>
+    <td>B7</td>
+    <td>C7</td>
+    <td>D7</td>
+    <td>E7</td>
+    <td>F7</td>
+   </tr>
+  </tbody></table>
+  <p>
+   Similarly, the test-and-branch instructions are of the form
+   <b>xyyy1111</b>, where <b>x</b> is 0 to test whether the bit is 0, or
+   1 to test whether it is 1, and <b>yyy</b> is which bit to test.
+  </p>
+  <table border="1" style="margin-bottom: 10px">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>BBR0</td>
+    <td>BBR1</td>
+    <td>BBR2</td>
+    <td>BBR3</td>
+    <td>BBR4</td>
+    <td>BBR5</td>
+    <td>BBR6</td>
+    <td>BBR7</td>
+   </tr>
+   <tr>
+    <td>zp,rel</td>
+    <td>0F</td>
+    <td>1F</td>
+    <td>2F</td>
+    <td>3F</td>
+    <td>4F</td>
+    <td>5F</td>
+    <td>6F</td>
+    <td>7F</td>
+   </tr>
+  </tbody></table>
+  <table border="1">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>BBS0</td>
+    <td>BBS1</td>
+    <td>BBS2</td>
+    <td>BBS3</td>
+    <td>BBS4</td>
+    <td>BBS5</td>
+    <td>BBS6</td>
+    <td>BBS7</td>
+   </tr>
+   <tr>
+    <td>zp,rel</td>
+    <td>8F</td>
+    <td>9F</td>
+    <td>AF</td>
+    <td>BF</td>
+    <td>CF</td>
+    <td>DF</td>
+    <td>EF</td>
+    <td>FF</td>
+   </tr>
+  </tbody></table>
+  <p>
+   Additionally, the WDC version of the 65C02 includes the 65C816's STP and
+   WAI instructions (see below).
+  </p>
+  <h3>"Undocumented" 65C02 Instructions</h3>
+  <p>
+   There aren't really any undocumented instructions on the 65C02--any
+   instructions not listed above are documented as performing no
+   operation.
+  </p>
+  <p>
+   However, these alternate NOPs are not created equal. Some have one- or
+   two-byte operands (which they don't do anything with), and they take
+   different amounts of time to execute.
+  </p>
+  <table border="1">
+   <tbody><tr><td>Instruction</td><td>Bytes</td><td>Cycles</td></tr>
+   <tr><td>xxxxxx10</td><td>2</td><td>2</td></tr>
+   <tr><td>xxxxxx11</td><td>1</td><td>1</td></tr>
+   <tr><td>01000100</td><td>2</td><td>3</td></tr>
+   <tr><td>x1x10100</td><td>2</td><td>4</td></tr>
+   <tr><td>01011100</td><td>3</td><td>8</td></tr>
+   <tr><td>11x11100</td><td>3</td><td>4</td></tr>
+  </tbody></table>
+  <p>Actually, it's not quite correct to say that these instructions don't do
+   anything with their operands.  A memory read <em>does</em> occur,
+   generally using the addressing mode you would expect from the bit
+   patterns--which may be significant if there happens to be a memory-mapped
+   hardware device at the target address.</p>
+  <p>A correspondent with appropriate testing hardware reports that the
+   behavior of 01011100 (5C) is strange:  "5C bb aa", after fetching its
+   three bytes, accesses FFbb, and then spends four cycles accessing FFFF.</p>
+  <h2><a name="ins816">65C816 Instructions</a></h2>
+  <p>
+   The 65C816 uses the <b>cc</b> = <b>11</b> instructions, but not for
+   Rockwell bit-manipulation opcodes.
+   Most of these are put to work supplying the new long addressing modes
+   of the 65C816:
+  </p>
+  <table border="1">
+   <tbody><tr><td><b>bbb</b></td><td>addressing mode</td></tr>
+   <tr><td>000</td><td>offset,S</td></tr>
+   <tr><td>001</td><td>[direct page]</td></tr>
+   <tr><td>011</td><td>absolute long</td></tr>
+   <tr><td>100</td><td>(offset,S),Y</td></tr>
+   <tr><td>101</td><td>[direct page],Y</td></tr>
+   <tr><td>111</td><td>absolute long,X</td></tr>
+  </tbody></table>
+  <p>
+   These combine with the <b>01</b> opcodes:
+  </p>
+  <table border="1">
+   <tbody><tr>
+    <td>&nbsp;</td>
+    <td>ORA</td>
+    <td>AND</td>
+    <td>EOR</td>
+    <td>ADC</td>
+    <td>STA</td>
+    <td>LDA</td>
+    <td>CMP</td>
+    <td>SBC</td>
+   </tr>
+   <tr>
+    <td>d,S</td>
+    <td>03</td>
+    <td>23</td>
+    <td>43</td>
+    <td>63</td>
+    <td>83</td>
+    <td>A3</td>
+    <td>C3</td>
+    <td>E3</td>
+   </tr>
+   <tr>
+    <td>[dp]</td>
+    <td>07</td>
+    <td>27</td>
+    <td>47</td>
+    <td>67</td>
+    <td>87</td>
+    <td>A7</td>
+    <td>C7</td>
+    <td>E7</td>
+   </tr>
+   <tr>
+    <td>al</td>
+    <td>0F</td>
+    <td>2F</td>
+    <td>4F</td>
+    <td>6F</td>
+    <td>8F</td>
+    <td>AF</td>
+    <td>CF</td>
+    <td>EF</td>
+   </tr>
+   <tr>
+    <td>(d,S),Y</td>
+    <td>13</td>
+    <td>33</td>
+    <td>53</td>
+    <td>73</td>
+    <td>93</td>
+    <td>B3</td>
+    <td>D3</td>
+    <td>F3</td>
+   </tr>
+   <tr>
+    <td>[dp],Y</td>
+    <td>17</td>
+    <td>37</td>
+    <td>57</td>
+    <td>77</td>
+    <td>97</td>
+    <td>B7</td>
+    <td>D7</td>
+    <td>F7</td>
+   </tr>
+   <tr>
+    <td>al,X</td>
+    <td>1F</td>
+    <td>3F</td>
+    <td>5F</td>
+    <td>7F</td>
+    <td>9F</td>
+    <td>BF</td>
+    <td>DF</td>
+    <td>FF</td>
+   </tr>
+  </tbody></table>
+  <p>
+   The missing <b>010</b> and <b>110</b> instructions are all single-byte
+   instructions:
+  </p>
+  <table border="1" style="margin-bottom: 10px">
+   <tbody><tr>
+    <td>PHD</td>
+    <td>PLD</td>
+    <td>PHK</td>
+    <td>RTL</td>
+    <td>PHB</td>
+    <td>PLB</td>
+    <td>WAI</td>
+    <td>XBA</td>
+   </tr>
+   <tr>
+    <td>0B</td>
+    <td>2B</td>
+    <td>4B</td>
+    <td>6B</td>
+    <td>8B</td>
+    <td>AB</td>
+    <td>CB</td>
+    <td>EB</td>
+   </tr>
+  </tbody></table>
+  <table border="1">
+   <tbody><tr>
+    <td>TCS</td>
+    <td>TSC</td>
+    <td>TCD</td>
+    <td>TDC</td>
+    <td>TXY</td>
+    <td>TYX</td>
+    <td>STP</td>
+    <td>XCE</td>
+   </tr>
+   <tr>
+    <td>1B</td>
+    <td>3B</td>
+    <td>5B</td>
+    <td>7B</td>
+    <td>9B</td>
+    <td>BB</td>
+    <td>DB</td>
+    <td>FB</td>
+   </tr>
+  </tbody></table>
+  <p>
+   The remaining instructions are a grab-bag assigned to the few remaining
+   unused positions:
+  </p>
+  <table border="1">
+   <tbody><tr><td>COP sig</td><td>02</td></tr>
+   <tr><td>JSL al</td><td>22</td></tr>
+   <tr><td>WDM</td><td>42</td></tr>
+   <tr><td>PER rl</td><td>62</td></tr>
+   <tr><td>BRL rl</td><td>82</td></tr>
+   <tr><td>REP #</td><td>C2</td></tr>
+   <tr><td>SEP #</td><td>E2</td></tr>
+   <tr><td>MVP sb,db</td><td>44</td></tr>
+   <tr><td>MVN sb,db</td><td>54</td></tr>
+   <tr><td>PEI dp</td><td>D4</td></tr>
+   <tr><td>PEA abs</td><td>F4</td></tr>
+   <tr><td>JMP al</td><td>5C</td></tr>
+   <tr><td>JML (abs)</td><td>DC</td></tr>
+   <tr><td>JSR (abs,X)</td><td>FC</td></tr>
+  </tbody></table>
+  <p><a href="http://www.llx.com/">LLX</a> &gt;
+   <a href="http://www.llx.com/~nparker/">Neil Parker</a> &gt;
+   <a href="http://www.llx.com/~nparker/a2/index.html">Apple II</a> &gt; 6502 Instruction Set</p>
+  <p>
+   <small>Original: July 27, 2004<br>
+   Modified: May 3, 2005<br>
+   Modified: May 29, 2016--Added a new note about 65C02 "undocumented" opcodes</small>
+  </p>
+ 
+
+</body></html>

@@ -1,0 +1,579 @@
+BBC Model B Memory map (pt. 2)
+
+PAGE 107 (&6B) : USER workspace or SCREEN memory
+PAGE 108 (&6C) : USER workspace or SCREEN memory
+PAGE 109 (&6D) : USER workspace or SCREEN memory
+PAGE 110 (&6E) : USER workspace or SCREEN memory
+PAGE 111 (&6F) : USER workspace or SCREEN memory
+PAGE 112 (&70) : USER workspace or SCREEN memory
+PAGE 113 (&71) : USER workspace or SCREEN memory
+PAGE 114 (&72) : USER workspace or SCREEN memory
+PAGE 115 (&73) : USER workspace or SCREEN memory
+PAGE 116 (&74) : USER workspace or SCREEN memory
+PAGE 117 (&75) : USER workspace or SCREEN memory
+PAGE 118 (&76) : USER workspace or SCREEN memory
+PAGE 119 (&77) : USER workspace or SCREEN memory
+PAGE 120 (&78) : USER workspace or SCREEN memory
+PAGE 121 (&79) : USER workspace or SCREEN memory
+PAGE 122 (&7A) : USER workspace or SCREEN memory
+PAGE 123 (&7B) : SCREEN memory (HIMEM 7)
+PAGE 124 (&7C) : SCREEN memory
+PAGE 125 (&7D) : SCREEN memory
+PAGE 126 (&7E) : SCREEN memory
+PAGE 127 (&7F) : SCREEN memory
+
+PAGES 128 (&80) to 191 (&BF)
+
+Paged rom area ( See Memory maps of particular Paged Roms )
+
+PAGE 192 (&C0) to 194 (&C2) : OS ROM
+
+C000-C2FF Character font lookup table
+
+PAGE 195 (&C3) : OS ROM
+
+C300 Initialise system
+C303 "BBC Computer" embedded message
+C312 "16k + BELL" embedded message
+C317 "32k + BELL" embedded message
+C31F-C32E Lookup table of byte masks for 4 colour modes
+C32F-C332 Lookup table of byte masks for 16 colour modes
+C333-C374 Address table for decoding VDU codes 0 to 31
+C375-C3B4 32 entries of a *640 multiplication table
+C3B5-C3E6 25 entries of a *40 multiplication table
+C3E7-C3EE One byte per display mode, giving number of character
+          rows displayed minus one
+C3EF-C3F6 One byte per display mode, giving number of character
+          columns displayed minus one
+C3F7-C3FE One byte per mode, giving value stored in video ULA
+          control register for that mode
+C3FF See &C400-&C406
+
+PAGE 196 (&C4) : OS ROM
+
+C400-C406 One byte per display mode, giving number of bytes
+          storage taken per character (also includes &C3FF)
+C407-C408 Mask table for 16 colour modes
+C409-C40C Mask table for 4 colour modes
+C40D-C414 Mask table for 2 colour modes
+C414-C41B One byte per mode, giving number of colours minus one
+C41B-C425 Processing table for GCOL actions
+C424-C425 Colour table - 2
+C426-C429 Colour table - 4
+C42A-C439 Colour table - 16
+C43A-C441 One byte per display mode, giving number of pixels
+          per byte on screen minus one
+C440-C447 One byte per display mode, giving memory map type
+          for the mode
+C447-C448 Various VDU section control numbers
+C459-C45D One byte per memory map type giving most
+          significant byte of number of bytes taken up by the screen
+C45E-C462 One byte per memory map type giving most significant byte
+          of address of first location used by the screen
+C463-C46D Table used by VDU section to index into other tables
+C46E-C479 6854 registers 0-11 for memory map type 0 (mode 0-2)
+C47A-C485 6854 registers 0-11 for memory map type 1 (mode 3)
+C486-C491 6854 registers 0-11 for memory map type 2 (mode 4-5)
+C492-C49D 6854 registers 0-11 for memory map type 3 (mode 6)
+C49E-C4A9 6854 registers 0-11 for memory map type 4 (mode 7)
+C4AA-C4AD VDU routine vector addresses
+C4AE-C4B1 VDU routine branch vector address lo
+C4B2-C4B5 VDU routine branch vector address hi
+C4B6-C4B9 Teletext conversion table
+C4BA-C4BF Soft character RAM allocation
+C4C0 Check VDU command, if normal character, PRINT it
+C4ED RUBOUT
+
+PAGE 197 (&C5) : OS ROM
+
+C511 VDU 0, VDU 6, VDU 27 entry point
+C53B VDU 1 send next character to printer only
+C55E Confrim input, output cursor not separated
+C565 Prepare cursor character for display
+C568 Interchange cursors, set CRTC address reg., toggle VDUscreen status
+C588 Get graphics cursor printing status bit
+C58D VDU 14 paged mode on
+C596 VDU 2 enable printer
+C59B VDU 21 disable VDU drivers or delete current line
+C59D Set VDU status or, if zero, reset default
+C5A1 VDU 3 disable printer
+C5A6 VDU 15 paged mode off
+C5A8 Reset specified VDU status bits
+C5AD VDU 4 write text at text cursor
+C5B9 VDU 5 write text at graphics cursor
+C5C5 VDU 8 backspace one character
+
+PAGE 198 (&C6) : OS ROM
+
+C621 Move graphisc cursor one position
+C65B VDU 11 move cursor up one line
+C664 VDU 9 advance text cursor if enabled
+C684 Set text cursor to new line, scrolling if required
+C6AC Clear text line to background, calculate offset, set CRTC address
+C6AF Calculate offset of character row, set text cursor address register
+C6B4 Paged mode scrolling
+C6F0 VDU 10 move cursor down one line (line feed)
+C6FA VDU 28 define text window
+
+PAGE 199 (&C7) : OS ROM
+
+C735 OSWORD 09 read pixel value
+C74B OSWORD 0B read palette
+C759 VDU 12 clear text area
+C779 VDU 30 home text cursor to top left
+C787 VDU 31 move text cursor to X,Y
+C7A8 Interchange current text cursor with value from general graphics
+     co-ordinate workspace
+C7AF VDU 13 move cursor to start of current line
+C7C0 VDU 16 clear graphics area
+C7F9 VDU 17 define text colour
+C7FD VDU 18 define graphics colour
+
+PAGE 200 (&C8) : OS ROM
+
+C839 VDU 20 restore default logical colour
+C88F Save colour index and define logical colour
+C892 VDU 19 define logical colour
+C89E Set logical/physical colour relationship
+C8E0 PSWORD 0C write palette
+C8EB VDU 22 select screen MODE
+C8F1 VDU 23 re-program display character or write to CRTC
+
+PAGE 201 (&C9) : OS ROM
+
+C938 Process un-recognised VDU command
+C93F Setup CRTC
+C951 Set 6845 cursor register to previous value
+C954 Set 6845 cursor parameters register (A=register)
+C958 Write parameter from VDU queue to specified CRTC reg
+C95E Set specified CRTC register
+C98C VDU 25 PLOT k,x,y
+C994 Backspace one row, set CRTC screen start address reg
+C9A4 Advance one row, set CRTC screen start address reg
+C9B3 Set 6845 CRTC screen start address reg
+C9BD VDU 26 restore default windows
+C9F6 Save 6845 text cursor position address, set corresponding 6845 reg
+
+PAGE 202 (&CA) : OS ROM
+
+CA02 Set 6845 text cursor address registers
+CA0E Set 6845 CRTC registers indexed by Y reg
+CA2B Write two bytes to consecutive 6845 registers
+CA39 VDU 24 define graphics window
+CA88 Set text window width according to character size
+CAA2 VDU 29 define graphics origin
+CAAC VDU 127 backspace and delete
+CAD4 Add number of bytes in row to display address
+CAE0 Zero PRINT line counter and scroll if enabled
+CAE3 scroll if enabled
+
+PAGE 203 (&CB) : OS ROM
+
+CB14 Zero page PRINT line counter
+CB1D Initialise video display parameters and workspace
+CB33 Set up video display parameters table
+CBC1 Initialise screen display parameters
+CBF3 OSWORD 0A read character definition
+
+PAGE 204 (&CC) : OS ROM
+
+CC02 Character font definition indirection vector lookup table
+CCF5 Process unrecognised VDU command
+CCF8 Scroll back one row, check if wrap-round needed
+
+PAGE 205 (&CD) : OS ROM
+
+CD07 OSBYTE 14 explode soft character RAM allocation
+CD3F Move text cursor to next line
+CD6A Process character for display
+CD77 Recover A reg, processor status from stack
+CD7A Process cursor character for display
+CDA4 Soft scroll one line
+CDCE Set scan line address, scroll back until counter zero
+CDDA Interchange current text cursor with value from co-ordinate workspace
+CDDE Interchange two Page 3 bytes indexed by X,Y
+CDE2 Interchange old and current graphics cursors
+CDE4 Interchange old graphics cursor with value from co-ordinate workspace
+CDE6 Interchange four-byte block indexed by X,Y in Page 3
+CDFF Scroll text one line
+
+PAGE 206 (&CE) : OS ROM
+
+CE2A Set scan ine address=source line address
+CE38 Copy source line to scan line
+CE5B Determine text window height, if non-zero do CR
+CE6E Set text cursor X-co-ordinate to left-hand side of text window
+CE73 Add character to scan line
+CEAC Clear text line to background colour
+CEE8Confirm cursor in text window, calculate character row offset
+
+PAGE 207 (&CF) : OS ROM
+
+CF06 Calculate address of text cursor
+CF63 PRINT character at graphics cursor
+CFA6 Home graphics cursor
+CFAD Set graphics cursor X-co-ordinate to left-hand column
+CFB7 Set up character definition and display character
+CFBF Display character
+CFDC Insert teletext character in scan line, convert if required
+
+PAGE 208 (&D0) : OS ROM
+
+D03E Set up character definition pointers
+D060 Process PLOT command
+D0B3 Set Page 0 colour processing bytes
+D0D9 Move graphics cursor to absolute position
+D0DC Copy current graphics cursor co-ordinates from VDU queue
+D0DE Copy four bytes from VDU queue
+D0E3 Set colour of point at current graphics cursor
+D0EB Omit last point in line
+D0F0 Set colour of current graphics point, save to graphics scan line
+D0F3Process colour and save to graphics scan line
+
+PAGE 209 (&D1) : OS ROM
+
+D104 Process colour of current graphics point
+D10D Check current graphics cursor position with respect to window boundaries
+D10F Check position of indexed graphics co-ordinates with respect to window
+     boundaries
+D128 Check current graphics point position with respect to window boundaries
+D149 Adjust co-ordinates according to display MODE
+D14D Adjust PLOT co-ordinater according to display options
+D176 Adjust co-ordinate for relative/absolute PLOT, divide it by 2
+D1AD Divide PLOT co-ordinate by 2
+D1B8 Calculate graphics cursor offset according to display MODE
+D1D5 Adjust cursor co-ordinates, calculate cursor offset
+D1E3 Use graphics origin to calculate cursor offset
+D1ED Execute PLOT command
+
+PAGE 210 (&D2) : OS ROM
+
+D214 Set up branch loops, PLOT parameters
+D2E3 Set scan byte if appropriate, adjust co-ordinates and scan position
+
+PAGE 211 (&D3) : OS ROM
+
+D3D3 Decrement graphics cell top line address by one row set Y=7
+D3ED Set graphics mask=left-hand colour mask, increment graphics cell by one
+     line
+D3FD Set graphics mask=right-hand colour mask, decrement graphics cell by one
+     line
+
+PAGE 212 (&D4) : OS ROM
+
+D40D Calculate graphics cursor relative to graphics window
+D411 Calculate graphics co-ordinates relative to specified point
+D418 Calculate graphics co-ordinates offset
+D42C If necessary, set up working co-ordinates, evaluate difference
+D42C Make positive, divide Y by 2
+D459 Take modules of working co-ordinate, divide Y co-ordinate by 2
+D467 Change sign of working co-ordinate, if negative
+D47C Copy 8 Page 3 bytes to new location (indexed by X,Y)
+D480 Copy two Page 3 bytes to co-ordinate workspace
+D482 Copy two Page 3 bytes to new location (indexed by X,Y)
+D486 Copy current graphics cursor to co-ordinate workspace
+D488 Copy current graphics cursor to new Page 3 location (indexed by Y)
+D48A Copy four Page 3 bytes to new location (indexed by X,Y)
+D49B Form 2s complement of number in Y & A registers
+D4AA If byte legal, process colour, else discard it and move cursor
+D4BF Omit last point in inverting action
+
+PAGE 213 (&D5) : OS ROM
+
+D506 PLOT with dotted line
+D545 Move graphics cursor and calculate offset for MODE
+D54B Get current graphics byte mask, set colour, save byte to scan line
+D574 Reset graphics byte and save to scan line
+D592 Check X co-ordinate from VDU queue against graphics window boundary
+D5AC Process working X co-ordinate, transfer to VDU queue
+D5CC OSWORD 0D read last two graphics cursor positions
+D5D5 Transfer four bytes indexed by A reg to OS buffer
+D5EA PLOT and FILL triangle
+
+PAGE 214 (&D6) : OS ROM
+
+D632 If old graphics cursor greater than new PLOT point interchange them
+D636 If source co-ordinates greater than destination co-ordinates,
+     interchange points
+D647 OSBYTE 86 read text cursor position (POS and VPOS)
+D658 Process co-ordinates and PLOT points till target reached
+D6A2 Set and arrange working co-ordinates
+D6A6 Arrange working co-ordinates, process colour mask and save to scan line
+
+PAGE 215 (&D7) : OS ROM
+
+D70E Recover target co-ordinates from stack
+D774 Derive co-ordinates for next point in triangle PLOT
+D7AC Add stored value to working co-ordinates, increment counter if necessary
+D7C2 OSBYTE 87 read character at text cursor position
+
+PAGE 216 (&D8) : OS ROM
+
+D808 Derive character definition from displayed character
+D839 Determine logical colour of specified point
+D85D Get co-ordinates from VDU queue, set up graphics line address, colour mask
+D85F Set co-ordinate source index, set up line address, colour mask
+D864 Set up graphics line address
+D8CE If enabled, PRINT at cursor position
+
+PAGE 217 (&D9) : OS ROM
+
+D905 If text cursor enabled, read character
+
+D918 Reset CRTC cursor reg, cursors together, enable screen, set A reg to &0D
+D923 OSBYTE 84 read HIMEM
+D926 OSBYTE 85 read address of screen buffer for MODE
+D940-D976 Page 2 vectors default settings
+D976-D9CC MOS variables default setting
+D9CD Soft-break handling routine
+D9DA Power on break handling routine
+
+PAGE 218 (&DA) : OS ROM
+
+PAGE 219 (&DB) : OS ROM
+
+PAGE 220 (&DC) : OS ROM
+
+DC93 IRQ-handling routine indirected via &204
+
+PAGE 222 (&DE) : OS ROM
+
+DE89 IRQ2 indirected here via &206 to handle unrecognised IRQs
+DEC5 OSRDCH: entry-point to character-input routine
+
+PAGE 223 (&DF) : OS ROM
+
+DF89 OSCLI: entry-point to command-line interpreter '*..'
+
+PAGE 224 (&E0) : OS ROM
+
+E0A4 OSWRCH: entry-point to character-output routine
+
+PAGE 223 (&E1) : OS ROM
+
+PAGE 224 (&E2) : OS ROM
+
+PAGE 227 (&E3) : OS ROM
+
+E310 User reserved vector indirected here via &200 on power-up
+
+PAGE 228 (&E4) : OS ROM
+
+PAGE 229 (&E5) : OS ROM
+
+PAGE 230 (&E6) : OS ROM
+
+PAGE 231 (&E7) : OS ROM
+
+E772 OSBYTE: entry-point to routine handling "*FX"
+E7EB OSWORD: entry-point
+
+PAGE 232 (&E8) : OS ROM
+
+PAGE 233 (&E9) : OS ROM
+
+PAGE 234 (&EA) : OS ROM
+
+PAGE 235 (&EB) : OS ROM
+
+PAGE 236 (&EC) : OS ROM
+
+PAGE 237 (&ED) : OS ROM
+
+PAGE 238 (&EE) : OS ROM
+
+PAGE 239 (&EF) : OS ROM
+
+PAGE 240 (&F0) : OS ROM
+
+PAGE 241 (&F1) : OS ROM
+
+F18E OSARGS: entry-point
+F1B1 FSC: entry-point
+
+PAGE 242 (&F2) : OS ROM
+
+F27D OSFILE: entry-point
+
+PAGE 243 (&F3) : OS ROM
+
+F3CA OSFIND: entry-point
+
+PAGE 244 (&F4) : OS ROM
+
+F4C9 OSBGET: entry-point
+
+PAGE 245 (&F5) : OS ROM
+
+F529 OSBPUT: entry-point
+
+PAGE 246 (&F6) : OS ROM
+
+PAGE 247 (&F7) : OS ROM
+
+PAGE 248 (&F8) : OS ROM 
+
+PAGE 249 (&F9) : OS ROM
+
+PAGE 250 (&FA) : OS ROM
+
+PAGE 251 (&FB) : OS ROM
+
+PAGE 252 (&FC) : 1 MHZ BUS (FRED)
+
+Memory-mapped input/output accessed by 1MHz Bus. Devices are connected to 8
+data lines, 8 address lines (A0-A7), one page-select line - either "FRED"
+(page &FC) or "JIM" (page &FD) - a read/write line and, if required, IRQ, NMI,
+RST and a 1MHz clock. The CPU clock is automatically run at 1MHZ instead of
+2MHz when either of these pages is addressed.
+
+Suggested memory map of 'FRED':
+
+FC00-FC0F Test hardware
+FC10-FC13 Teletext
+FC14-FC1F Prestel
+FC20-FC27 IEEE 488 Interface
+FC28-FC2F Acorn expansion
+FC30-FC3F Cambridge Ring interface
+FC40-FC47 Winchester Disc interface
+FC48-FC7F Acorn expansion
+FC80-FC8F Test hardware
+FC90-FCBF Acorn expansion
+FCC0-FCFE User applications
+FCFF Paging Register for 'JIM'
+
+PAGE 253 (&FD) : 1 MHZ BUS (JIM)
+
+FD00-FDFF 1 mhz paged memory ( 256 bytes )
+
+PAGE 254 (&FE) : I/O MEMORY (SHIELA)
+
+FE00 6845 cathode-ray tube controller address register Values between 0 and 17
+     (&11) written to this register select which of the 6845's 18 registers are
+     read or written to at...
+FE01 6845 data-register
+Values are written to or read from &FE01 after a register-select value has been
+placed in &FE00:
+00  Duration of each horizontal scan
+01  Number of characters per line
+02  Position of horizontal sync pulse
+03  Width of horizontal sync pulse
+04  Vertical sync frequency
+05  Vertical sync frequency
+06  Number of text lines on screen
+07  Vertical sync position
+08  Interlace mode
+09  Number of vertical dots per character
+0A  Cursor start line
+0B  Cursor stop line
+0C  Memory-address of first screen-character (LSB)
+0D  MSB
+0E  Memory-address of text-cursor (LSB)
+0F  MSB
+10  Light-pen position (LSB)
+11  MSB
+
+FE08 6850 asynchronous interface adaptor (ACIA) (serial interface -
+     cassette/RS432) Write: control regRead: status reg
+FE09 6850 ACIA
+Write: transmit data reg Read: receive data reg
+FE10 Serial ULA control register
+ Bit 0-2   Transmit baud rate
+ Bit 3-5   Receive baud rate
+ Bit 6     Select RS423 or cassette
+ Bit 7     Motor relay & LED
+FE20 Video ULA control register (Write only)
+ Bit 0     Selected flash colour
+ Bit 1     Teletext output select
+ Bit 2&3   Number of characters per line
+ Bit 4     Clock rate select
+ Bit 5&6   Width of cursor in bytes
+ Bit 7     Master cursor width
+FE21 Video ULA palette (Write only)
+FE30 Paged ROM latch
+FE40 System 6522 versatile interface adaptor (VIA)
+Registers as user/printer
+VIA - addresses offset from &FE40 as below
+FE60 User/printer 6522 VIA
+Port B input/output register (User)
+FE61 Port A input/output register (1) (Printer)
+FE62 Data direction register - port B (User)
+FE63 Data direction register - port A (Printer)
+FE64 Timer 1 latch/counter LSB
+FE65 Timer 1 latch-counter MSB
+FE66 Timer 1 latch LSB
+FE67 Timer 1 latch MSB
+FE68 Timer 2 latch/counter LSB
+FE69 Timer 2 latch/counter MSB
+FE6A Shift register
+FE6B Auxiliary control register
+FE6C Peripheral control register
+FE6D Interrupt flag register
+FE6E Interrupt control register
+FE6F Port A input/output register (2) (Printer)
+FE80 8271 floppy-disk controller Write: Status registerRead: Command reg
+FE81 8271 floppy-disk controller Write: Result registerRead: Parameter reg
+FE82 8271 floppy-disk controller Write:Read: Reset reg
+FE83 8271 floppy-disk controller Write: Not usedRead: Not used
+FE84 8271 floppy-disk controller Write: Read dataRead: Write data
+FEA0 68B54 Advanced data link controller Write: Control reg 1Read: Status reg 1
+FEA1 68B54 Advanced data link controller Write: Control reg 2Read: Status reg 2
+FEA2 68B54 Advanced data link controller Write: Transmit FIFORead: Receive FIFO
+FEA3 68B54 Advanced data link controller Write: Transmit FIFORead: Receive FIFO
+FEC0 uPD7002 analogue-to-digital converter (ADC) Write: Data latchRead:
+      Status register
+FEC1 uPD7002 analogue-to-digital converter hi-data byte
+FEC2 uPD7002 analogue-to-digital converter low-data byte
+FEE0-FEFF Tube ULA
+
+PAGE 255 (&FF) : OS VECTORS
+
+Operating system ROM calls.
+
+FFA6 OSGBPB: entry-point
+ EVNT: entry-point to event-handling routine usually revectored by user
+ UPT: entry-point to user printer routine usually revectored by user
+FFB9 OSRDRM entry point
+FFBF OSEVEN entry point
+FFBC Main VDU character output enter point
+FFC2 GSINIT entry point
+FFC5 GSREAD entry point
+FFC8 Non-vectored OSWRCH
+FFCB Non-vectored OSRDCH
+FFCE OSFIND entry point
+FFD1 OSGBPB entry point
+FFD4 OSBPUT entry point
+FFD7 OSBGET entry point
+FFDA OSARGS entry point
+FFDD OSFILE entry point
+FFE0 OSRDCH entry point
+FFE3 OSASCI entry point (highest-level entry to OSWRCH)
+FFE7 OSNEWL entry point (mid-level entry to OSWRCH)
+FFEE OSWRCH entry point (lowest level)
+FFF1 OSWORD entry point
+FFF4 OSBYTE entry point
+FFF7 OSCLI  entry point
+FFFA-FFFB NMI vector
+FFFC-FFFD BREAK vector
+FFFE-FFFF IRQ vector
+
+NOTE
+
+This map, which is by no means complete, has been compiled from examination of
+the machine and with information from a variety of sources, including:
+
+(1)BBC Micro User Guide John Coll, BBC
+(2)Mapping Out the Beebon David Christensen, Personal Computer World
+(3)The BBC Micro Revealed Jeremy Ruston, Interface
+(4)The BBC Micro - an expert guide Mike James, Granada Publishing
+(5)Advanced User Guide Bray,Dickens & Holmes, Cambridge Microcomputer Centre
+(6)The BBC Micro Compendium Jeremy Ruston, Interface
+(7)Basic Rom User Guide Mark Plumbley, Adder
+(8)Inside OS Roger Cullis, Practical Computing
+(9)The Advanced Basic Rom User Guide Colin Pharo, Cambridge Microcomputing
+
+Very little of the information has been checked, and although errors
+have been found in some of the sources, and corrected, many will have
+been missed and new ones may have been introduced!
+
+-------------------------------------------------------------------------

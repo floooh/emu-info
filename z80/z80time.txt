@@ -1,0 +1,350 @@
+Here is a list of how many clockcycles
+the z80 instructions take.
+Let's optimize!
+
+Mnemonic     Clock Siz OP-Code
+
+ADC A,(HL)    7     1   8E
+ADC A,(IX+N)  19    3   DD 8E XX
+ADC A,(IY+N)  19    3   FD 8E XX
+ADC A,r       4     1   88+rb
+ADC A,N       7     2   CE XX
+ADC HL,BC     15    2   ED 4A
+ADC HL,DE     15    2   ED 5A
+ADC HL,HL     15    2   ED 6A
+ADC HL,SP     15    2   ED 7A
+ADD A,(HL)    7     1   86
+ADD A,(IX+N)  19    3   DD 86 XX
+ADD A,(IY+N)  19    3   FD 86 XX
+ADD A,r       4     1   80+rb
+ADD A,N       7     2   C6 XX
+ADD HL,BC     11    1   09
+ADD HL,DE     11    1   19
+ADD HL,HL     11    1   29
+ADD HL,SP     11    1   39
+ADD IX,BC     15    2   DD 09
+ADD IX,DE     15    2   DD 19
+ADD IX,IX     15    2   DD 29
+ADD IX,SP     15    2   DD 39
+ADD IY,BC     15    2   FD 09
+ADD IY,DE     15    2   FD 19
+ADD IY,IY     15    2   FD 29
+ADD IY,SP     15    2   FD 39
+AND (HL)      7     1   A6
+AND (IX+N)    19    3   DD A6 XX
+AND (IY+N)    19    3   FD A6 XX
+AND r         4     1   A0+rb
+AND N         7     2   E6 XX
+BIT b,(HL)    12    2   CB 46+8*b
+BIT b,(IX+N)  20    4   DD CB XX 46+8*b
+BIT b,(IY+N)  20    4   FD CB XX 46+8*b
+BIT b,r       8     2   CB 40+8*b+rb
+CALL C,NN     17/1  3   DC XX XX
+CALL M,NN     17/1  3   FC XX XX
+CALL NC,NN    17/1  3   D4 XX XX
+CALL NC,NN    17/1  3   D4 XX XX
+CALL NN       17    3   CD XX XX
+CALL NZ,NN    17/1  3   C4 XX XX
+CALL P,NN     17/1  3   F4 XX XX
+CALL PE,NN    17/1  3   EC XX XX
+CALL PO,NN    17/1  3   E4 XX XX
+CALL Z,NN     17/1  3   CC XX XX
+CCF           4     1   3F
+CP (HL)       7     1   BE
+CP (IX+N)     19    3   DD BE XX
+CP (IY+N)     19    3   FD BE XX
+CP r          4     1   B8+rb
+CP N          7     2   FE XX
+CPD           16    2   ED A9
+CPDR          21/1  2   ED B9
+CPI           16    2   ED A1
+CPIR          21/1  2   ED B1
+CPL           4     1   2F
+DAA           4     1   27
+DEC (HL)      11    1   35
+DEC (IX+N)    23    3   DD 35 XX
+DEC (IY+N)    23    3   FD 35 XX
+DEC A         4     1   3D
+DEC B         4     1   05
+DEC BC        6     1   0B
+DEC C         4     1   0D
+DEC D         4     1   15
+DEC DE        6     1   1B
+DEC E         4     1   1D
+DEC H         4     1   25
+DEC HL        6     1   2B
+DEC IX        10    2   DD 2B
+DEC IY        10    2   FD 2B
+DEC L         4     2   2D
+DEC SP        6     1   3B
+DI            4     1   F3
+DJNZ $+2      13/8  2   10 XX
+EI            4     1   FB
+EX (SP),HL    19    1   E3
+EX (SP),IX    23    2   DD E3
+EX (SP),IY    23    2   FD E3
+EX AF,AF'     4     1   08
+EX DE,HL      4     1   EB
+EXX           4     1   D9
+HALT          4     1   76
+IM 0          8     2   ED 46
+IM 1          8     2   ED 56
+IM 2          8     2   ED 5E
+IN A,(C)      12    2   ED 78
+IN A,(N)      11    2   DB XX
+IN B,(C)      12    2   ED 40
+IN C,(C)      12    2   ED 48
+IN D,(C)      12    2   ED 50
+IN E,(C)      12    2   ED 58
+IN H,(C)      12    2   ED 60
+IN L,(C)      12    2   ED 68
+INC (HL)      11    1   34
+INC (IX+N)    23    3   DD 34 XX
+INC (IY+N)    23    3   FD 34 XX
+INC A         4     1   3C
+INC B         4     1   04
+INC BC        6     1   03
+INC C         4     1   0C
+INC D         4     1   14
+INC DE        6     1   13
+INC E         4     1   1C
+INC H         4     1   24
+INC HL        6     1   23
+INC IX        10    2   DD 23
+INC IY        10    2   FD 23
+INC L         4     1   2C
+INC SP        6     1   33
+IND           16    2   ED AA
+INDR          21/1  2   ED BA
+INI           16    2   ED A2
+INIR          21/1  2   ED B2
+JP $NN        10    3   C3 XX XX
+JP (HL)       4     1   E9
+JP (IX)       8     2   DD E9
+JP (IY)       8     2   FD E9
+JP C,$NN      10/1  3   DA XX XX
+JP M,$NN      10/1  3   FA XX XX
+JP NC,$NN     10/1  3   D2 XX XX
+JP NZ,$NN     10/1  3   C2 XX XX
+JP P,$NN      10/1  3   F2 XX XX
+JP PE,$NN     10/1  3   EA XX XX
+JP PO,$NN     10/1  3   E2 XX XX
+JP Z,$NN      10/1  3   CA XX XX
+JR $N+2       12    2   18 XX
+JR C,$N+2     12/7  2   38 XX
+JR NC,$N+2    12/7  2   30 XX
+JR NZ,$N+2    12/7  2   20 XX
+JR Z,$N+2     12/7  2   28 XX
+LD (BC),A     7     1   02
+LD (DE),A     7     1   12
+LD (HL),r     7     1   70+rb
+LD (HL),N     10    2   36 XX
+LD (IX+N),r   19    3   DD 70+rb XX
+LD (IX+N),N   19    4   DD 36 XX XX
+LD (IY+N),r   19    3   FD 70+rb XX
+LD (IY+N),N   19    4   FD 36 XX XX
+LD (NN),A     13    3   32 XX XX
+LD (NN),BC    20    4   ED 43 XX XX
+LD (NN),DE    20    4   ED 53 XX XX
+LD (NN),HL    16    3   22 XX XX
+LD (NN),IX    20    4   DD 22 XX XX
+LD (NN),IY    20    4   FD 22 XX XX
+LD (NN),SP    20    4   ED 73 XX XX
+LD A,(BC)     7     1   0A
+LD A,(DE)     7     1   1A
+LD A,(HL)     7     1   7E
+LD A,(IX+N)   19    3   DD 7E XX
+LD A,(IY+N)   19    3   FD 7E XX
+LD A,(NN)     13    3   3A XX XX
+LD A,r        4     1   78+rb
+LD A,I        9     2   ED 57
+LD A,N        7     2   3E XX
+LD B,(HL)     7     1   46
+LD B,(IX+N)   19    3   DD 46 XX
+LD B,(IY+N)   19    3   FD 46 XX
+LD B,r        4     1   40+rb
+LD B,N        7     2   06 XX
+LD BC,(NN)    20    4   ED 4B XX XX
+LD BC,NN      10    3   01 XX XX
+LD C,(HL)     7     1   4E
+LD C,(IX+N)   19    3   DD 4E XX
+LD C,(IY+N)   19    3   FD 4E XX
+LD C,r        4     1   48+rb
+LD C,N        7     2   0E XX
+LD D,(HL)     7     1   56
+LD D,(IX+N)   19    3   DD 56 XX
+LD D,(IY+N)   19    3   FD 56 XX
+LD D,r        4     1   50+rb
+LD D,N        7     2   16 XX
+LD DE,(NN)    20    4   ED 5B XX XX
+LD DE,NN      10    3   11 XX XX
+LD E,(HL)     7     1   5E
+LD E,(IX+N)   19    3   DD 5E XX
+LD E,(IY+N)   19    3   FD 5E XX
+LD E,r        4     1   58+rb
+LD E,N        7     2   1E XX
+LD H,(HL)     7     1   66
+LD H,(IX+N)   19    3   DD 66 XX
+LD H,(IY+N)   19    3   FD 66 XX
+LD H,r        4     1   60+rb
+LD H,N        7     2   26 XX
+LD HL,(NN)    20    3   2A XX XX
+LD HL,NN      10    3   21 XX XX
+LD I,A        9     2   ED 47
+LD IX,(NN)    20    4   DD 2A XX XX
+LD IX,NN      14    4   DD 21 XX XX
+LD IY,(NN)    20    4   FD 2A XX XX
+LD IY,NN      14    4   FD 21 XX XX
+LD L,(HL)     7     1   6E
+LD L,(IX+N)   19    3   DD 6E XX
+LD L,(IY+N)   19    3   FD 6E XX
+LD L,r        4     1   68+rb
+LD L,N        7     2   2E XX
+LD SP,(NN)    20    4   ED 7B XX XX
+LD SP,HL      6     1   F9
+LD SP,IX      10    2   DD F9
+LD SP,IY      10    2   FD F9
+LD SP,NN      10    3   31 XX XX
+LDD           16    2   ED A8
+LDDR          21/1  2   ED B8
+LDI           16    2   ED A0
+LDIR          21/1  2   ED B0
+NEG           8     2   ED 44
+NOP           4     1   00
+OR (HL)       7     1   B6
+OR (IX+N)     19    3   DD B6 XX
+OR (IY+N)     19    3   FD B6 XX
+OR r          4     1   B0+rb
+OR N          7     2   F6 XX
+OTDR          21/1  2   ED BB
+OTIR          21/1  2   ED B3
+OUT (C),A     12    2   ED 79
+OUT (C),B     12    2   ED 41
+OUT (C),C     12    2   ED 49
+OUT (C),D     12    2   ED 51
+OUT (C),E     12    2   ED 59
+OUT (C),H     12    2   ED 61
+OUT (C),L     12    2   ED 69
+OUT (N),A     11    2   D3 XX
+OUTD          16    2   ED AB
+OUTI          16    2   ED A3
+POP AF        10    1   F1
+POP BC        10    1   C1
+POP DE        10    1   D1
+POP HL        10    1   E1
+POP IX        14    2   DD E1
+POP IY        14    2   FD E1
+PUSH AF       11    1   F5
+PUSH BC       11    1   C5
+PUSH DE       11    1   D5
+PUSH HL       11    1   E5
+PUSH IX       15    2   DD E5
+PUSH IY       15    2   FD E5
+RES b,(HL)    15    2   CB 86+8*b
+RES b,(IX+N)  23    4   DD CB XX 86+8*b
+RES b,(IY+N)  23    4   FD CB XX 86+8*b
+RES b,r       8     2   CB 80+8*b+rb
+RET           10    1   C9
+RET C         11/5  1   D8
+RET M         11/5  1   F8
+RET NC        11/5  1   D0
+RET NZ        11/5  1   C0
+RET P         11/5  1   F0
+RET PE        11/5  1   E8
+RET PO        11/5  1   E0
+RET Z         11/5  1   C8
+RETI          14    2   ED 4D
+RETN          14    2   ED 45
+RL (HL)       15    2   CB 16
+RL r          8     2   CB 10+rb
+RL (IX+N)     23    4   DD CB XX 16
+RL (IY+N)     23    4   FD CB XX 16
+RLA           4     1   17
+RLC (HL)      15    2   CB 06
+RLC (IX+N)    23    4   DD CB XX 06
+RLC (IY+N)    23    4   FD CB XX 06
+RLC r         8     2   CB 00+rb
+RLCA          4     1   07
+RLD           18    2   ED 6F
+RR (HL)       15    2   CB 1E
+RR r          8     2   CB 18+rb
+RR (IX+N)     23    4   DD CB XX 1E
+RR (IY+N)     23    4   FD CB XX 1E
+RRA           4     1   1F
+RRC (HL)      15    2   CB 0E
+RRC (IX+N)    23    4   DD CB XX 0E
+RRC (IY+N)    23    4   FD CB XX 0E
+RRC r         8     2   CB 08+rb
+RRCA          4     1   0F
+RRD           18    2   ED 67
+RST 0         11    1   C7
+RST 8H        11    1   CF
+RST 10H       11    1   D7
+RST 18H       11    1   DF
+RST 20H       11    1   E7
+RST 28H       11    1   EF
+RST 30H       11    1   F7
+RST 38H       11    1   FF
+SBC (HL)      7     1   9E
+SBC A,(IX+N)  19    3   DD 9E XX
+SBC A,(IY+N)  19    3   FD 9E XX
+SBC A,N       7     2   DE XX
+SBC r         4     1   98+rb
+SBC HL,BC     15    2   ED 42
+SBC HL,DE     15    2   ED 52
+SBC HL,HL     15    2   ED 62
+SBC HL,SP     15    2   ED 72
+SCF           4     1   37
+SET b,(HL)    15    2   CB C6+8*b
+SET b,(IX+N)  23    4   DD CB XX C6+8*b
+SET b,(IY+N)  23    4   FD CB XX C6+8*b
+SET b,r       8     2   CB C0+8*b+rb
+SLA (HL)      15    2   CB 26
+SLA (IX+N)    23    4   DD CB XX 26
+SLA (IY+N)    23    4   FD CB XX 26
+SLA r         8     2   CB 20+rb
+SRA (HL)      15    2   CB 2E
+SRA (IX+N)    23    4   DD CB XX 2E
+SRA (IY+N)    23    4   FD CB XX 2E
+SRA r         8     2   CB 28+rb
+SRL (HL)      15    2   CB 3E
+SRL (IX+N)    23    4   DD CB XX 3E
+SRL (IY+N)    23    4   FD CB XX 3E
+SRL r         8     2   CB 38+rb
+SUB (HL)      7     1   96
+SUB (IX+N)    19    3   DD 96 XX
+SUB (IY+N)    19    3   FD 96 XX
+SUB r         4     1   90+rb
+SUB N         7     2   D6 XX
+XOR (HL)      7     1   AE
+XOR (IX+N)    19    3   DD AE XX
+XOR (IY+N)    19    3   FD AE XX
+XOR r         4     1   A8+rb
+XOR N         7     2   EE XX
+
+r means register. Can be A,B,C,D,E,H,L.
+Add this to last byte of OP-code:
+Reg     regbits
+A       7
+B       0
+C       1
+D       2
+E       3
+H       4
+L       5
+On >LD (IX+N),r< and >LD (IY+N),r< you
+add it to the byte before the last.
+
+b means bit. Can be 0-7. Increase the
+last byte of OP-code with 8*b.
+Used in SET, BIT and RES.
+
+If there is two numbers given at Clock,
+then the highest is when the jump is
+taken.
+
+Collected by Oscar Lindberg 960324
+(offler@skip.adb.gu.se) from:
+Z80 pocketbook
+Z80 assembly language programming
+

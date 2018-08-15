@@ -1,0 +1,3493 @@
+;
+; atom kernel ROM F000-FFFF, suitable for assembly with CA65
+;
+
+
+        .setcpu "6502"
+
+; zeropage registers
+
+
+L0052           := $0052
+L00C9           := $00C9
+L00CB           := $00CB
+L00D6           := $00D6
+L00E2           := $00E2
+L00E8           := $00E8
+
+; vectors
+
+NMIVEC           := $0200	; NMI service routine
+BRKVEC           := $0202	; BRK service routine
+IRQVEC           := $0204	; IRQ service routine
+COMVEC           := $0206	; Command line interpreter
+WRCVEC           := $0208	; Write character
+RDCVEC           := $020A	; Read character
+LODVEC           := $020C	; Load file
+SAVVEC           := $020E	; Save file
+RDRVEC           := $0210	; Error
+STRVEC           := $0212	; Error
+BGTVEC           := $0214	; Get byte from tape
+BPTVEC           := $0216	; Put byte to tape
+FNDVEC           := $0218	; Print message
+SHTVEC           := $021A	; Dummy
+
+L03FE           := $03FE	; Address of point-plotting routine
+
+; addresses in BASIC ROM
+
+LC231           := $C231
+LC278		:= $C278
+LC2AC		:= $C2AC
+LC2B2           := $C2B2
+LC2B6           := $C2B6
+LC2CF           := $C2CF
+LC31B           := $C31B
+LC3C8           := $C3C8
+LC3CB           := $C3CB
+LC3F1           := $C3F1
+LC434           := $C434
+LC4E4           := $C4E4
+LC4F6           := $C4F6
+LC51D           := $C51D
+LC550		:= $C550	; handle unrecognised statement
+LC558           := $C558	; back to the interpreter, with post check
+LC55B           := $C55B	; back to the interpreter, without post
+LC589           := $C589
+LC5F9           := $C5F9
+LC78B           := $C78B
+LC8BC           := $C8BC
+LC94F           := $C94F
+LC962           := $C962
+LCA24           := $CA24
+LCA4C           := $CA4C
+LCD54           := $CD54
+LCD9B           := $CD9B
+LCE83           := $CE83
+DOS		:= $E000
+
+	.org 	$f000
+
+LF000:  .byte   "PLOT", >plot, <plot
+        .byte   "DRAW", >draw, <draw
+	.byte	"MOVE", >move, <move
+	.byte 	"CLEAR", >clear, <clear
+	.byte	"DIM", >dim, <dim
+	.byte	"[", >start_asm, <start_asm
+	.byte	"OLD", >old, <old
+	.byte	"WAIT", >wait, <wait
+	.byte 	"", >LC550, <LC550 
+
+;    Test for Array variable and Fetch Contents if Valid subroutine
+;    --------------------------------------------------------------
+;  
+;  - Looks for two consecutive characters being the same, thus identifying
+;    an array.
+;  - Entry at #F02E starts interpretation at (5),?#5E.
+;  - Entry at #F030 starts interpretation at (5),Y.
+;  - Enter with the X register pointing to the current slot of the workspace
+;    stack.
+;  - If an array is identified, the array number is evaluated, the array
+;    offset calculated (offset=4*array number, since an integer has 4-byte
+;    precision), the offset added to the array base address fetched from the
+;    Array Table, and the 4-byte integer read from the resultant array
+;    variable and written to the current slot of the workspace stack.
+;  - The workspace stack pointer ?4 is updated and incremented.
+
+
+        ldy     $5E		; Get index
+        lda     ($05),y		; Get the first character of text
+        cmp     #$40		; Is it >= '@' ?
+        bcc     LF048		; ..no, can't be a valid array - quit
+        cmp     #$5B		; Is it <= '[' ?
+        bcs     LF048		; ..no, can't be a valid array - quit
+        iny			; Point to the second character in text
+        cmp     ($05),y		; Is the second character the same as the first ?
+        bne     LF048		; ..no, it's not a valid array - quit
+        jsr     LF08B		; Interpret the address of the array number 
+			        ; and copy to the level of the w/s stack
+				; pointed to by the X register
+        jsr     LC94F		; Get the LSB array byte into LSB w/s stack
+        jmp     LC962		; Get the 3 MSBs into the w/s stack also
+LF048:  jmp     LCA24		; Unrecognised command - try FP interpreter
+        ldx     #$FF		; Pointer to the #F000 command word table
+	ldy	$5E		; Get interpreter pointer
+	dec	$5E		; This now points to the previous character
+
+	; TEST FOR ARRAY ASSIGNMENT
+
+        lda     ($05),y		; Get the first character of text
+        cmp     #$40		; Is it >= '@' ?
+        bcc     LF060		; ..no, definately not an array assignment
+        cmp     #$5B		; is it <= '[' ?
+        bcs     LF060		; ..no, definately not an array assignment
+        iny			; Point to the second character in text
+        cmp     ($05),y		; is it the same, identifying an array ?
+        beq     LF085		; ..yes, deal with ARRAY=(function)
+
+	; TRY TO MATCH TEXT WITH #F000 TABLE WORDS
+
+LF060:  ldy     $5E		; Restore pointer to the character before the first to be interpreted
+LF062:  inx			; Point to next character in command table
+        iny			; Point to next character under analysis
+        lda     LF000, x		; Get character from command table
+        bmi     LF075		; ..reached MSB address byte of command wor
+        cmp     ($05),y		; Otherwise compare with character in text
+        beq     LF062		; Go on to test next character if matched
+
+	; WORD MATCH FAILED - TRY NEXT WORD IN TABLE
+
+LF06D:  inx			; Point to next character of the failed command word in the table
+        lda     LF000-1, x	; ..and get it
+        bpl     LF06D		; Keep going until MSB command word reached
+        bne     LF060		; ..and try to match this command word
+
+	; COPY JUMP ADDRESS TO ZERO PAGE - AND JUMP
+
+LF075:  sta     $53		; Dump the MSB jump address to w/s
+        lda     LF000 + 1, x	; Get MSB jump address from command table
+        sta     L0052		; Dump the LSB jump address to w/s
+        sty     $03		; Update the interpreter pointer
+        ldx     $04		; Get pointer to current slot of w/s stack
+        inc     $5E		; This points to the first character JUST interpreted
+LF082:  jmp	($52)		; Jump to the command word jump address
+				; note: operand byte is used for BRK hack
+
+;    Set Array Variable to an Arbitrarily Complex Expression
+;    -------------------------------------------------------
+;  
+;  - Interprets an array variable, followed by an '=', followed by an
+;    arbitrarily complex numerical expression, and copies the latter to the
+;    array variable.
+;  - Returns to the main interpreter at #C55B.
+
+LF085:  jsr     LF08B		; Get the array address into the current
+			  	; level of the w/s stack and increment the w/s stack pointer
+        jmp     LC3F1		; Interpret an '=' followed by a numerical
+			        ; expression & copy this result to the array variable 
+				; previously interpreted
+
+;    Interpret an Array Variable Address to the Workspace Stack subroutine
+;    ---------------------------------------------------------------------
+;  
+;  - Gets the array start address from the table of start addresses pointed
+;    to by #2EB,Y and #306,Y, adds the offset calculated by 4 times the
+;    evaluated array number, and places the resultant address on the current
+;    level of the workspace stack.
+;  - Enter with (5),Y pointing to the second array character (@ to Z), the
+;    accumulator containing the array character, and the Carry flag set.
+  
+LF08B:  iny			; Point to first character of array number
+        sty     $03		; Save interpreter index
+LF08E:  sbc     #$40		; Convert so '@'=0 to "Z"=26
+        pha			; ..and save the resulting array number
+        jsr     LC8BC		; Evaluate array number onto the w/s stack
+        pla			; Restore the array number
+        tay			; This is the index to the array stack
+        lda     $15, x		; )
+        asl     a		; )
+        rol     $24, x		; )
+        asl     a		; ) Multiply the 2-byte array number by 4
+        rol     $24, x		; ) to get the array offset
+        clc			; )
+        adc     $02EB,y		; )
+        sta     $15, x		; ) 
+        lda     $24, x	 	; ) Add the array offset to the base address
+        adc     $0306,y		; ) and put the result on the last level of
+        sta     $24, x		; ) the w/s stack
+        bcs     LF082 + 2	; ..if the array had not been dimensioned,
+			        ; then overflow will occur as the arrays are
+			        ; initialised to #FFFF. Hence execute BRK
+        rts			;
+
+;    Execute the Command 'DIM'
+;    -------------------------
+;  
+;  - If in Direct Mode then BRK is executed.
+;  
+
+dim:  	lda     $01		; If the MSB line number is 0..
+        ora     $02		; ..and the LSB line number is 0..
+        beq     LF0D6		; ..then in Direct Mode, so BRK
+
+	; TEST FOR NUMERIC OR STRING ARRAY
+
+        jsr     LC434		; Get the first non-space character onto the w/s stack if it's alphabetic
+        bcc     LF0D7		; Branch if the first character is not alphabetic or
+				; the first two characters are - possibly indicating a numeric array
+
+	; DIMENSION A STRING ARRAY
+
+        jsr     LC8BC		; Interpret array length onto the w/s stack
+        dex			; Point to array length on the w/s stack
+        dex			; Point to array character no. on w/s stack
+        stx     $04		; Update w/s stack pointer
+        ldy     $16, x		; Get character number from LSB w/s stack
+        sec			;
+        lda     $23		; Copy LSB free space pointer..
+        sta     $0321,y		; ..to LSB variable - this is string address
+        adc     $17, x		; Add array length from w/s stack
+        sta     $23		; Update LSB free space pointer
+        lda     $24		; Copy MSB free space pointer..
+        sta     $033C,y		; ..to MSB variable - this is string address
+        adc     $26, x		; Add array length from w/s stack
+        jmp     LF119		; Update MSB free space pointer and test for
+				; memory at the free space pointer address
+LF0D6:  brk			;
+
+	; DIMENSION A NUMERIC ARRAY
+	; FIRST TEST FOR VALID ARRAY VARIABLE IN THE RANGE '@@' TO 'ZZ'
+
+LF0D7:  ldy     $03		; Get the interpreter pointer
+        lda     ($05),y		; Get first non-space character from text
+        cmp     #$40		; Is it alphabetic, ie >= '@' ?
+        bcc     LF0D6		; ..no, execute BRK
+        cmp     #$5B		; Is it alphabetic, ie < '[' ?
+        bcs     LF0D6		; ..no, execute BRK
+
+	; EVALUATE ARRAY VARIABLE AND LENGTH
+
+        iny			; Point to next character
+        cmp     ($05),y		; Is this the same as the first character
+				; indicating a valid array variable ?
+        bne     LF0D6		; ..no, execute BRK
+        sbc     #$40		; ..yes, convert so '@'=0 to 'Z'=26
+        pha			; Save this array variable number
+        iny			; Point to first character of array dimension
+        sty     $03		; Update text pointer
+        jsr     LC8BC		; Evaluate arbitrarily complex array length onto the w/s stack
+        pla			; Restore the array variable number
+        tay			; ..as the index to the array tabl
+
+	; SET ARRAY VARIABLE TO FREE SPACE POINTER
+
+        lda     $23		; Copy the LSB free space pointer..
+        sta     $02EB,y		; ..to the LSB array variable table
+        lda     $24		; Copy the MSB free space pointer..
+        sta     $0306,y		; ..to the MSB array variable table
+        dex			;
+        stx     $04		; Decrement the w/s pointer
+
+	; MULTIPLY ARRAY LENGTH BY 4 AS IT'S NUMERIC
+
+        ldy     $16, x		; Get the LSB array length
+        iny			; Increment - a dimension of 0 uses 1 byte !
+        bne     LF107		; 
+        inc     $25, x		; Increment MSB array length if overflowed
+LF107:  tya			; Get the LSB array lengt
+        asl     a		; Double it
+        rol     $25, x		; ..and double the MSB array length
+        asl     a		; Double it again
+        rol     $25, x		; ..and double the MSB array length again
+
+	; ADD (4*LENGTH) TO FREE SPACE POINTER
+
+        clc			;
+        adc     $23		; Add the old LSB free space pointer
+        sta     $23		; And update the LSB free space pointer
+        lda     $25, x		; Get MSB (4*length)
+        adc     $24		; Add the old MSB free space pointer
+        bcs     LF0D6		; Execute BRK if overflows
+LF119:  sta     $24		; And update the MSB free space pointer
+
+	; TEST FOR MEMORY AT FREE SPACE POINTER
+
+LF11B:  ldy 	#0		; 
+        lda     #$AA		; Get first test byte
+        sta     ($23),y		; ..and dump to free space pointer address
+        cmp     ($23),y		; Can it be read back ?
+        bne     LF11B + 1	; ..no, execute BRK
+        lsr     a		; Get second test byte, ie #55
+        sta     ($23),y		; ..and dump to free space pointer address
+        cmp     ($23),y		; Can it be read back ?
+        bne     LF11B + 1	; ..no, execute BRK
+
+	; CONTINUE DIMENSIONING OTHER VARIABLES
+
+        jsr     LC434		; Get first non-space character
+        bcs     LF0D6		; Execute BRK if it's alphabetic - a ',' is expected separating DIM terms
+        ldy     $03		; Get interpreter pointer
+        lda     ($05),y		; Get first non-space character
+        cmp     #$2C		; Is it ',' ?
+        bne     LF13E		; ..no, no more variables to dimension
+        inc     $03		; ..yes, Point past the ',
+        jmp     dim		; ..and dimension the next variable
+LF13E:  jmp     LC558		; Back to the interpreter
+
+;    Execute the Command 'RUN'
+;    -------------------------
+;  
+;  - Sets the free space pointer at (#23) to TOP at (#D) and then jumps to
+;  - the continuation at #CE83.
+
+        lda     $0D
+        sta     $23
+        lda     $0E
+        sta     $24
+        jmp     LCE83
+
+;    Execute the Command 'WAIT'
+;    -------------------------
+
+wait:
+	jsr     LC4E4		; Do the interpreter post test
+        jsr     LFE66		; Wait for the start of the next flyback
+	jmp	LC55B		; back to the interpreter, without post
+
+;    Table of Compressed Assembler Mnemonic (MSB)
+;    --------------------------------------------
+;  
+
+LF155:
+	.byte  $1C, $8A, $1C, $23, $5D, $8B, $1B, $A1
+	.byte  $9D, $8A, $1D, $23, $9D, $8B, $1D, $A1
+	.byte  $00, $29, $19, $AE, $69, $A8, $19, $23
+	.byte  $24, $53, $1B, $23, $24, $53, $19, $A1
+	.byte  $00, $1A, $5B, $5B, $A5, $69, $24, $24
+	.byte  $AE, $AE, $A8, $AD, $29, $00, $7C, $00
+	.byte  $15, $9C, $6D, $9C, $A5, $69, $29, $53
+	.byte  $84, $13, $34, $11, $A5, $69, $23, $A0
+
+
+;    Table of Compressed Assembler Mnemonic (LSB)
+;    --------------------------------------------
+
+LF195:
+	.byte  $D8, $62, $5A, $48, $26, $62, $94, $88
+	.byte  $54, $44, $C8, $54, $68, $44, $E8, $94
+	.byte  $00, $B4, $08, $84, $74, $B4, $28, $6E
+	.byte  $74, $F4, $CC, $4A, $72, $F2, $A4, $8A
+	.byte  $00, $AA, $A2, $A2, $74, $74, $74, $72
+	.byte  $44, $68, $B2, $32, $B2, $00, $22, $00
+	.byte  $1A, $1A, $26, $26, $72, $72, $88, $C8
+	.byte  $C4, $CA, $26, $48, $44, $44, $A2, $C8
+
+
+;    Table of Bit Masks for Address Modes (LSB)
+;    ------------------------------------------
+
+LF1D5:
+	.byte  $00, $02, $00, $08, $F2, $FF, $80, $01
+	.byte  $C0, $E2, $C0, $C0, $FF, $00, $00
+
+
+;    Table of Bit Masks for Address Modes (MSB)
+;    ------------------------------------------
+
+LF1E4:
+	.byte  $08, $00, $10, $80, $40, $C0, $00, $C0
+	.byte  $00, $40, $00, $00, $E4, $20, $80
+
+
+;    Table of Offset from Base for Address Modes
+;    -------------------------------------------
+
+LF1F3:
+	.byte  $00, $FC, $00, $08, $08, $F8, $FC, $F4
+	.byte  $0C, $10, $04, $F4, $00, $20, $10
+	
+LF202:
+	.byte  $00, $00, $0F, $01, $01, $01, $11, $11
+	.byte  $02, $02, $11, $11, $02, $12, $02
+
+
+;    Table of Base Address Value for Mnemonics Modes
+;    -----------------------------------------------
+
+LF211:
+	.byte  $00, $08, $10, $18, $20, $28, $30, $38
+	.byte  $40, $48, $50, $58, $60, $68, $70, $78
+	.byte  $80, $88, $90, $98, $A0, $A8, $B0, $B8
+	.byte  $C0, $C8, $D0, $D8, $E0, $E8, $F0, $F8
+	.byte  $0C, $2C, $4C, $4C, $8C, $AC, $CC, $EC
+	.byte  $8A, $9A, $AA, $BA, $CA, $DA, $EA, $FA
+	.byte  $0E, $2E, $4E, $6E, $8E, $AE, $CE, $EE
+	.byte  $0D, $2D, $4D, $6D, $8D, $AD, $CD, $ED
+
+
+;    Table of Base Address Value for Mnemonics
+;    -----------------------------------------
+
+LF251:
+	.byte  $0D, $0D, $0C, $0D, $0E, $0D, $0C, $0D
+	.byte  $0D, $0D, $0C, $0D, $0D, $0D, $0C, $0D
+	.byte  $0F, $0D, $0C, $0D, $09, $0D, $0C, $0D
+	.byte  $08, $0D, $0C, $0D, $08, $0D, $0C, $0D
+	.byte  $0F, $06, $0B, $0B, $04, $0A, $08, $08
+	.byte  $0D, $0D, $0D, $0D, $0D, $0F, $0D, $0F
+	.byte  $07, $07, $07, $07, $05, $09, $03, $03
+	.byte  $01, $01, $01, $01, $02, $01, $01, $01
+
+;  
+;    Get to the First Non-Space Character subroutine
+;    -----------------------------------------------
+;  
+;   - Gets the first non-space character into the accumulator using the (5),Y
+;     pointer where Y=?3.
+;   - Returns with (5),Y pointing to the following character and ?3 updated.
+;  
+
+LF291:  ldy     $03		; Get the interpreter pointer
+        lda     ($05),y		; Get character from text
+        inc     $03		; Increment interpreter pointer
+        cmp     #$20		; Is this character a <SPC> ?
+LF299:  beq     LF291		; ..yes, keep searching
+        rts			;
+
+;    Execute the Command ']'
+;    -----------------------
+;  
+
+LF29C:  inc     $03		; Skip past the ']' symbol
+        jmp     LC31B		; ..and return to the main interpreter
+
+;    Execute the Command '['
+;    -----------------------
+
+start_asm:  
+	lda     ($05),y		; Get the current character from text
+        cmp     #$5D		; Is it the assembler terminator ']' ?
+        beq     LF29C		; ..yes, return to the main interpreter
+        jsr     LC4F6		; Consolidate the (5),Y pointer, check <ESC>
+        dec     $03		; Point to the current character
+        jsr     LF38E		; Interpret the assembly statement into w/s
+        dec     $03		; Decrement the interpreter pointer
+        lda     L0052		; 
+        pha			; Save the LSB current assembly address
+        lda     $53		;
+        pha			; Save the MSB current assembly address
+
+	; PRINT THE TEXT LINE NUMBER
+
+        lda     $0321		; Get print field width, LSB variable '@
+        pha			; ..and save it
+        lda     #$00		; 
+        sta     $34		; Clear second MSB lowest level of w/s stack
+        sta     $43		; Clear MSB lowest level of w/s stack
+        lda     #$05		; Set the print field width in order to print the text line number
+        sta     $0321		;
+        lda     $01		; Get the LSB text line number
+        sta     $16		; ..into LSB lowest level of w/s stack
+        lda     $02		; Get the MSB text line number
+        sta     $25		; ..into second LSB lowest level of w/s stack
+        jsr     LC589		; Print line number in decimal in field @
+        jsr     LF379		; Print a space
+        pla			;
+        sta     $0321		; Restore origional print field width
+        pla			; Restore the LSB current assembly addres
+        jsr     LF37E		; ..and print it in hex
+        pla			; Restore the MSB current assembly address
+        jsr     LF376		; ..and print it in hex followed by a space
+
+	; PRINT ASSEMBLED CODE IN HEX
+
+        ldy     #$00		; Initialise code byte pointer
+LF2E2:  cpy     $00		; printed all the code bytes ?
+        beq     LF2EF		; ..yes
+        lda     $66,y		; get byte of code
+        jsr     LF376		; ..and print it in hex followed by a space
+        iny			; Point to the next byte of code
+        bne     LF2E2		; ..and loop round to deal with that
+LF2EF:  cpy     #$03		; 
+        beq     LF2FF		;
+        jsr     LF379		; Print a space
+        jsr     LCA4C		; 
+        jsr     LCA4C		;
+        iny			;
+        bne     LF2EF		;
+LF2FF:  ldy     #$00		;
+LF301:  lda     ($05),y		; Get character from text
+        cmp     #$3B		; Is it ';' statement separator ?
+        beq     LF311		; ..yes,
+        cmp     #$0D		; Is it <CR> line terminator ?
+        beq     LF311		; ..yes,
+        jsr     LCA4C		;
+        iny			;
+        bne     LF301		;
+LF311:  jsr     LCD54		;
+        jsr     LC4E4		;
+        dey			;
+        lda     ($05),y		; Get character from text
+        iny			; Point to next character
+        cmp     #$3B		; Is it ';' statement separator ?
+        beq     LF32B		; ..yes,
+        lda     $06		;
+        cmp     #$01		;
+        bne     LF328		;
+        jmp     LC2CF		;
+LF328:  jsr     LC51D		;
+LF32B:  jmp     start_asm	;
+
+;    Deal with Assembler Label Definition
+;    ------------------------------------
+;  
+;  - Interprets a label (array variable) and sets the label to the current
+;    value of the assembler memory pointer P.
+;  - Enter with the ":" having been interpreted, and with (5),?3 pointing
+;    to the first character of the array variable.
+
+LF32E:  jsr     LF291		; Get the next non-space character
+        sta     $66		; Store this - it's the first array character
+        jsr     LF291		; Get the next non-space characte
+        cmp     $66		; Is the second array character the same as 
+				; the first - ie is it a valid array ?
+        bne     LF349+1		; ..no, invalid label - execute BRK
+        cmp     #$40		; Is the label character < '`' ?
+        bcc     LF349+1		; ..yes, invalid label - execute BRK
+        cmp     #$5B		; Is the label character >= '[' ?
+        bcs     LF349+1		; ..yes, invalid label - execute BRK
+        sec			; 
+        jsr     LF08E		; Evaluate array address onto the w/s stack
+        jsr     LC3CB		; Copy last level of w/s stack to #52..#55
+LF349:  ldy	#0		; 
+        lda     $0331		; Get LSB variable 'P' (memory pointer)
+        sta     (L0052),y	; ..and set LSB label
+        lda     $034C		; Get the second LSB of integer variable 'P'
+        iny			;
+        sta     (L0052),y	; ..and set second LSB label
+        lda     #$00		;
+        iny			;
+        sta     (L0052),y	; Clear second MSB label
+        iny			;
+        sta     (L0052),y	; Clear MSB label
+        bne     LF396		; Go on to interpret assembler statement
+
+;    Deal with Assembler Comments
+;    ----------------------------
+;  
+;    - Only returns to the assembler interpreter at the end of the text line
+;      or when the asssembler statement separator ';' is encountered.
+
+LF360:  jsr     LF291		; Get the next non-space character from text
+        cmp     #$3B		; Is it the statement separator ';' ?
+        beq     LF36B		; ..yes, set up the memory pointer , and go
+				; .. on to interpret the next statement
+        cmp     #$0D		; Is the text line terminator <CR> ? 
+        bne     LF360		; No, so character is skipped as a comment
+
+;    Get the Integer Variable 'P' into the Workspace Stack subroutine
+;    ----------------------------------------------------------------
+;  
+;    - Puts the two LSBs of integer variable 'P' into workspace #52, #53.
+;  
+
+LF36B:  lda     $0331		; Get LSB integer variable 'P'
+        sta     L0052		; ..into w/s
+        lda     $034C		; Get second LSB integer variable 'P'
+        sta     $53		; ..into w/s
+        rts			;
+
+;    Print Accumulator in Hexadecimal followed by a Space subroutine
+;    ---------------------------------------------------------------
+;   
+;    - Prints the accumulator as two hex digits followed by a space.
+;    - COUNT is incremented 3 times.
+;    - Returns with Acc=#20, X=#FD, Y preserved.
+
+LF376:  jsr     LF37E		; Print the accumulator as two hex digits
+LF379:  lda     #$20		; Get <SPC>
+        jmp     LCA4C		; Increment COUNT and send char to OSWRCH
+
+;    Print Accumulator in Hexadecimal subroutine
+;    -------------------------------------------
+;  
+;    - Prints the accumulator as two hex digits.
+;    - COUNT is incremented twice.
+;    - Returns with X=#FD, Y preserved.
+
+LF37E:  ldx     #$FF		; Required to return from #C5F9
+        pha			; Save number
+        lsr     a		; )
+        lsr     a		; )
+        lsr     a		; )
+        lsr     a		; ) Bring upper nibble to lower
+        jsr     LC5F9		; Convert to hex and print
+        pla			; Restore number
+        and     #$0F		; Clear upper nibble
+        jmp     LC5F9		; Convert to hex and print
+
+;    Deal with Assembler Statement
+;    -----------------------------
+
+LF38E:  ldx     #$00		; 
+        stx     $00		; Clear error number
+        stx     $64		; Clear w/s
+        stx     $65		; Clear w/s
+
+	; GET OPCODE
+
+LF396:  jsr     LF291		; Get the next non-space chracter from text
+        cmp     #$3A		; Is it ':', indicating label definition ?
+        beq     LF32E		; ..yes, set up label to memory pointer P
+        cmp     #$3B		; Is it statement separator ';' ?
+        beq     LF36B		; ..yes, set up the memory pointer P
+        cmp     #$0D		; Is it the text line terminator <CR> ?
+        beq     LF36B		; ..yes, set up the memory pointer P
+        cmp     #$5C		; Is it '\', indicating a comment field ?
+        beq     LF360		; ..yes, skip to end of comment field
+
+	; ENCODE CHARACTER OF OPCODE INTO #6A, #69
+
+        ldy     #$05		; 
+        sec			;
+        adc     #$00		; Add 1 and clear carry
+        asl     a		; )
+        asl     a		; ) Shift into upper nibble, with MS bit of
+        asl     a		; ) lower nibble clear
+LF3B1:  asl     a		; )
+        rol     $6A		; )
+        rol     $69		; )
+        dey			; ) Shift it 5 bits into #6A, #69
+        bne     LF3B1		; )
+        inx			; Increment opcode character counter
+        cpx     #$03		; Fetched all 3 characters of opcode ?
+        bne     LF396		; ..no, fetch & encode the next character
+        asl     $6A		;
+        rol     $69		;
+
+	; TRY TO MATCH OPCODE AGAINST TABLE
+
+        ldx     #$40		; Pointer to compressed mnemonic tables
+        lda     $69		; Get LSB compressed encoded opcode
+LF3C6:  cmp     LF155 - 1, x	; Match in table ?
+        beq     LF3CF		; ..yes, now try to match MSB
+LF3CB:  dex			; ..no, decrement the  table counter
+        bne     LF3C6		; ..and try to match the next tabled opco
+        brk			; ..unless run out of table !
+LF3CF:  ldy     LF195 - 1, x	; Get MSB code from table
+        cpy     $6A		; Match MSB compressed encoded opcode ?
+        bne     LF3CB		; ..no, try the next code from the table
+
+	; SUCCESSFUL OPCODE MATCH
+
+        lda     LF211 - 1, x	; Get Base address value (???) from table
+        sta     $66		; ...into w/s
+        ldy     LF251 - 1, x	; Get Base address value (???) from table
+        sty     $0F		; ...into w/s
+LF3E0:  ror     $64		;
+        ror     $65		;
+        dey			;
+        bne     LF3E0		;
+        ldy     $0F		;
+        cpy     #$0D		;
+        bne     LF3F2		;
+        ldx     #$00		;
+LF3EF:  jmp     LF49B		; Construct opcode and data
+
+;    Get Assembler Addressing Mode Data and Type
+;    -------------------------------------------
+   
+LF3F2:  jsr     LF291		; Get the next non-space chracter from text
+        cmp     #$40		; Is it '@', signifying immediate address ?
+        beq     LF454		; ..yes, deal with immediate address mode
+        cmp     #$28		; Is it '(', signifying indirect address ?
+        beq     LF462		; ..yes, deal with indirect address mode
+        ldx     #$01		;
+        cmp     #$41		; Is it 'A', signifying accumulator addressing mode ?
+        beq     LF3EF		; ..yes, construct opcode
+        dec     $03		;
+        jsr     LC78B		; Evaluate address onto the w/s stack
+        jsr     LF291		; Get the next non-space chracter from text
+        cmp     #$2C		; Is it ',', signifying indexed addressing 
+        bne     LF440		; ..no,
+
+	; DEAL WITH INDEXED ADDRESSING
+
+        jsr     LF291		; ..yes, get the next non-space chracter from text
+        ldy     $25		;
+        beq     LF42B		;
+        ldx     #$09		;
+        cmp     #$58		; Is the index 'X' ?
+        beq     LF49B		; ..yes, construct opcode and data
+        dex			;
+        cmp     #$59		; Is the index 'Y
+        bne     LF49A		; ..no, but nothing else is valid ! - BRK
+        lda     $0F		; 
+        cmp     #$09		;
+        bne     LF49B		; Construct opcode and data
+        ldx     #$0E		;
+        bne     LF49B		; Construct opcode and data
+LF42B:  ldx     #$04		;
+        cmp     #$58		;
+        beq     LF49B		; Construct opcode and data
+        cmp     #$59		;
+        bne     LF49A		; Construct opcode and data
+        dex			;
+        ldy     $0F		;
+        cpy     #$03		;
+        bcs     LF49B		; Construct opcode and data
+        ldx     #$08		;
+        bne     LF49B		; Construct opcode and data
+
+;    Act on Assembler ??? Mode
+;    -------------------------
+
+LF440:  dec     $03		;
+        ldx     #$02		;
+        ldy     $0F		;
+        cpy     #$0C		;
+        beq     LF49B		; Construct opcode and data
+        ldx     #$05		;
+        lda     $25		;
+        beq     LF49B		; Construct opcode and data
+        ldx     #$0C		;
+        bne     LF49B		; Construct opcode and data
+
+;    Act on Assembler Immediate Mode
+;    -------------------------------
+
+LF454:  jsr     LC78B		;
+        lda     $0F		;
+        ldx     #$06		;
+        cmp     #$01		;
+        beq     LF49B		; Construct opcode and data
+        inx			;
+        bne     LF49B		; Construct opcode and data
+
+;    Act on Assembler Indirect Mode
+;    ------------------------------
+
+LF462:  jsr     LC78B		;
+        jsr     LF291 		; Get the next non-space chracter from text
+        cmp     #$29		;
+        beq     LF482		;
+        cmp     #$2C		;
+        bne     LF49A		;
+        jsr     LF291		; Get the next non-space chracter from text
+	cmp	#$58		; 
+        bne     LF49A		;
+        jsr     LF291		; Get the next non-space chracter from text
+        cmp     #$29		;
+        bne     LF49A		;
+        ldx     #$0B		;
+        bne     LF49B		; Construct opcode and data
+LF482:  ldx     #$0D		;
+        lda     $0F		;
+        cmp     #$0B		;
+        beq     LF49B		; Construct opcode and data
+        ldx     #$0A		;
+        jsr     LF291		; Get the next non-space chracter from text
+        cmp     #$2C		;
+        bne     LF49A		;
+        jsr     LF291		; Get the next non-space chracter from text
+        cmp     #$59		;
+        beq     LF49B		; Construct opcode and data
+LF49A:  brk			;
+
+;    Construct Assembler Opcode and Data
+;    -----------------------------------
+
+LF49B:  jsr     LF360		;
+        lda     LF1D5, x	;
+        beq     LF4A7		;
+        and     $64		;
+        bne     LF4AE		;
+LF4A7:  lda     LF1E4, x	;
+        and     $65		;
+        beq     LF49A		;
+LF4AE:  clc			;
+        lda     LF1F3, x	;
+        adc     $66		;
+        sta     $66		;
+        lda     LF202, x	;
+        ldx     #$00		;
+        stx     $04		;
+        ldy     $16		;
+        sty     $67		;
+        ldy     $25		;
+        sty     $68		;
+        cmp     #$0F		;
+        beq     LF4EC		;
+        and     #$0F		;
+        tay			;
+        iny			;
+        sty     $00		;
+        cpy     #$02		;
+        bne     LF4D7		;
+        ldy     $68		;
+        bne     LF49A		;
+LF4D7:  ldy     #$00		;
+LF4D9:  lda     $66,y		;
+        sta     (L0052),y	;
+        iny			;
+        inc     $0331		;
+        bne     LF4E7		;
+        inc     $034C		;
+LF4E7:  cpy     $00		;
+        bne     LF4D9		;
+        rts			;
+
+;    Handle Assembler Relative Addressing
+;    ------------------------------------
+;  
+LF4EC:  lda     #$02		;
+        sta     $00		;
+        sec			;
+        lda     $67		;
+        sbc     $0331		;
+        sta     $67		;
+        lda     $68		;
+        sbc     $034C		;
+        sta     $68		;
+        sec			;
+        lda     $67		;
+        sbc     #$02		;
+        sta     $67		;
+        tay			;
+        lda     $68		;
+        sbc     #$00		;
+        beq     LF52C		;
+        cmp     #$FF		;
+        beq     LF527		;
+LF511:  jsr     LF7D1		;
+
+        .byte   "OUT OF RANGE:", 10, 13
+ 
+	sty	$67		;
+        bmi     LF4D7		;
+LF527:  tya			;
+        bmi     LF4D7		;
+        bpl     LF511		;
+LF52C:  tya			;
+        bpl     LF4D7		;
+        bmi     LF511		;
+
+;   Execute the Command 'OLD'
+;   -------------------------
+;  
+;   - Exits to END at #CD98 and hence to Direct Mode.
+
+old:    jsr     LC4E4		; Do the interpreter post test
+        dey			; Now Y=0
+        sty     L0052		; Set w/s to LSB start of text
+        lda     $12		; Get text page
+        sta     $53		; Set w/s to MSB start of text
+        tya			; Clear accumulator
+        iny			; Point to the MSB first line number
+        sta     (L0052),y	; ..and clear it, killing any previous NEW
+        jmp     LCD9B		; Evaluate END, updating TOP, and returning to the Direct Mode.
+
+;    Execute the Command 'DRAW'
+;    --------------------------
+;  
+;    - Executes PLOT 5,X,Y.
+
+draw:   ldx     #$05		;
+LF544:  bne     LF548		;
+
+;    Execute the Command 'MOVE'
+;    --------------------------
+;  
+;    - Executes PLOT 12,X,Y.
+
+move:   ldx     #$0C		;
+LF548:  stx     $16		;
+        inc     $04		;
+        bne     LF554		;
+
+;    Execute the Command 'PLOT'
+;    --------------------------
+;
+;    Evaluate plot number into #16, and the x & y coordinates into (#5A,#5B),(#5C,#5D)
+
+plot:
+        jsr     LC8BC		; Evaluate PLOT number onto the w/s stack
+        jsr     LC231		; Search for ',', executing BRK if failure
+LF554:  jsr     LC8BC		; Evaluate X coordinate onto the w/s stack
+        jsr     LC231		; Search for ',', executing BRK if failure
+        jsr     LC8BC		; Evaluate Y coordinate onto the w/s stack
+        jsr     LC4E4		; Do the interpreter post test
+        lda     $15, x		; Get LSB Y coordinate from the w/s stack
+        sta     $5C		; ..into w/s
+        lda     $24, x		; Get MSB Y coordinate from the w/s stack
+        sta     $5D		; ..into w/s
+        lda     $14, x		; Get LSB X coordinate from the w/s stack
+        sta     $5A		; ..into w/s
+        lda     $23, x		; Get MSB X coordinate from the w/s stack
+        sta     $5B		; ..into w/s
+        ldx     #$00		;
+        stx     $04		; Clear w/s stack pointer
+
+	; Get last plotted coordinate into (#52,#53) for x, and (#54,#55) for y
+
+        ldx     #$03		;
+LF576:  lda     $03C1, x	; )
+        sta     L0052, x	; )
+        dex			; ) Get data from the LPP stack #3C1..#3C4
+        bpl     LF576		; ) and store in w/s #52..#55
+
+	; Deal with absolute and relative plots
+
+        lda     $16		; Get PLOT number
+        and     #$04		; Is it MOVE/DRAW to an absolute position ?
+        bne     LF597		; ..yes, so the LPP is not used
+
+	; Add old (x,y) coordinate to new (x,y) coordinate for relative plots
+
+        ldx     #$02		;
+LF586:  clc			;
+        lda     $5A, x		; Get new X or Y LSB coordinate
+        adc     L0052, x	; Add to old X or Y LSB coordinate
+        sta     $5A, x		; ..and store resultant relative coordinate
+        lda     $5B, x		; Get new X or Y MSB coordinate
+        adc     $53, x		; Add to old X or Y LSB coordinate
+        sta     $5B, x		; ..and store resultant relative coordinate
+        dex			;
+        dex			;
+        bpl     LF586		; ..do both X and Y coordinates
+
+	; COPY NEW PLOT POSITION TO THE LAST PLOTTED POINT STACK
+
+LF597:  ldx     #$03		; )
+LF599:  lda     $5A, x		; )
+        sta     $03C1, x	; )
+        dex			; ) Get data from w/s #5A..#5D
+        bpl     LF599		; ) and store in the LPP stack #3C1..#3C4
+
+	; EXECUTE POINT PLOT OR LINE DRAW AS RQD
+
+        lda     $16		; Get PLOT number
+        and     #$03		; Is it just a MOVE ?
+        beq     LF5B2		; ..yes, return to interpreter
+        sta     $5E		; Save these 3 bits as Clear/Set/Invert flag
+        lda     $16		; Get PLOT number
+        and     #$08		; Is it a point plot or a line draw ?
+        beq     LF5B5		; Branch if it's a line draw
+        jsr     LF678		; Otherwise plot a point
+LF5B2:  jmp     LC55B		; ..and return to the interpreter without post
+
+;    Draw a Line Routine
+;    -------------------
+;  
+;  - Uses the point plot routine at (#3FE).
+;  - Returns to the interpreter at #C55B.
+;  - Entry: Old position X coordinate (#52,#53)
+;           Old position Y coordinate (#54,#55)
+;           New position X coordinate (#5A,#5B)
+;           New position Y coordinate (#5C,#5D)
+;           #5E=0,1,2 to Clear, Set or Invert the line.
+;  
+;  - Uses:  Change  in   X coordinate (#52,#53)
+;           Change  in   Y coordinate (#54,#55)
+;           Old position X coordinate (#5A,#5B)
+;           Old position Y coordinate (#5C,#5D)
+;  
+;      CALCULATE (NEW X) - (OLD X) INTO (#56,#57)
+;      CALCULATE (NEW Y) - (OLD Y) INTO (#58,#59)
+
+LF5B5:  ldx     #$02		;
+LF5B7:  sec			;
+        lda     $5A, x		; Get LSB new X or Y
+        sbc     L0052, x	; Subtract LSB old X or Y
+        ldy     L0052, x	; Get LSB old X or Y
+        sty     $5A, x		; ..and store LSB X or Y in new w/s
+        sta     L0052, x	; Store LSB X or Y change in w/s
+        ldy     $53, x		; Get MSB old X or Y
+        lda     $5B, x		; Get MSB new X or Y
+        sbc     $53, x		; Subtract MSB old X or Y
+        sty     $5B, x		; ..and store MSB old X or Y in new w/s
+        sta     $53, x		; Store MSB X or Y change in w/s
+        sta     $56, x		; Keep a copy of MSB change for testing
+        bpl     LF5DD		; Branch if New >= Old
+
+	; OFFSET IS NEGATIVE - NEGATE IT
+
+        lda     #$00		; 
+        sec			;
+        sbc     L0052, x	; Negate LSB change
+        sta     L0052, x	; ..and store it
+        lda     #$00		;
+        sbc     $53, x		; Negate MSB change
+        sta     $53, x		; ..and store it
+LF5DD:  dex			;
+        dex			;
+        bpl     LF5B7		; ..deal with both X and Y coordinates
+        lda     $54 		; Get LSB Y change
+        cmp     L0052 		; Clear carry if LSB Y < LSB X
+        lda     $55 		; Get MSB X change
+        sbc     $53 		; Subtract  MSB Y change
+        bcc     LF61C 		; ..deal with Y change < X change
+
+;    Plot a Line with (X change) <= (Y change)
+;    -----------------------------------------
+
+        lda     #$00 		; 
+        sbc     $54 		;
+        sta     $57 		;
+        lda     #$00 		;
+        sbc     $55 		;
+        sec 			;
+        ror     a 		;
+        sta     $59 		;
+        ror     $57 		;
+LF5FB:  jsr     LF678 		;
+        lda     $5C 		;
+        cmp     $03C3 		;
+        bne     LF60F 		;
+        lda     $5D 		;
+        cmp     $03C4 		;
+        bne     LF60F 		;
+LF60C:  jmp     LC55B 		; back to the interpreter, without post
+LF60F:  jsr     LF655 		;
+        lda     $59		;
+        bmi     LF5FB		;
+        jsr     LF644		;
+        jmp     LF5FB		;
+
+;    Plot a Line with (X change) > (Y change)
+;    ----------------------------------------
+
+LF61C:  lda     $53		;
+        lsr     a		;
+        sta     $59		;
+        lda     L0052		;
+        ror     a		;
+        sta     $57		;
+LF626:  jsr     LF678		;
+        lda     $5A		;
+        cmp     $03C1		;
+        bne     LF637		;
+        lda     $5B		;
+        cmp     $03C2		;
+        beq     LF60C		;
+LF637:  jsr     LF644		;
+        lda     $59		;
+        bpl     LF626		;
+        jsr     LF655		;
+        jmp     LF626		;
+
+LF644:  sec			;
+        lda     $57		;
+        sbc     $54		;
+        sta     $57		;
+        lda     $59		;
+        sbc     $55		;
+        sta     $59		;
+        ldx     #$00		;
+        beq     LF664		;
+LF655:  clc			;
+        lda     $57		;
+        adc     L0052		;
+        sta     $57		;
+        lda     $59		;
+        adc     $53		;
+        sta     $59		;
+        ldx     #$02		;
+LF664:  lda     $56, x		;
+        bpl     LF671		;
+
+;    Decrement the Vector (#5A),X subroutine
+;    ---------------------------------------
+
+        lda     $5A, x		;
+        bne     LF66E		;
+        dec     $5B, x		;
+LF66E:  dec     $5A, x		;
+LF670:  rts			;
+
+;    Increment the Vector (#5A),X subroutine
+;    ---------------------------------------
+
+LF671:  inc     $5A, x		;
+        bne     LF670		;
+        inc     $5B, x		;
+        rts			;
+
+;    Plot a Point Subroutine
+;    -----------------------
+
+LF678:  jmp     (L03FE)		;
+
+;    Execute the Command 'CLEAR'
+;    ---------------------------
+;  
+;  - Sets up the appropriate word at #B000 for the 6847 VDG.
+;  - Places the appropriate point plot routine address in vector #3FE, #3FF.
+
+clear:  jsr     LC3C8		; Evaluate the Clear Mode number
+LF67E:	ldy	#0		;
+        lda     L0052		; Get the Mode number
+        beq     LF6C2		; ..do CLEAR 0
+        cmp     #$05		; Is the Mode number>4 ?
+        bcc     LF68A		; ..no
+        lda     #$04		; ..yes, set it to 4
+LF68A:  ldx     #$80		;
+        stx     $54		; Set MSB pointer to MSB start of screen
+        sty     $53		; Set LSB pointer to LSB start of scree
+        sta     L0052		; Save Mode numbe
+        tax			; Now X=Mode number
+        lda     LF6CF - 1, x	; Get page AFTER the last to be cleared
+
+	; CHECK THAT TEXT IS NOT IN GRAPHICS AREA
+
+        ldx     $12		; Get text page
+        bpl     LF69E		; Branch if in lower text space
+        cmp     $12		; Otherwise test if Text is above Graphics
+        bcs     LF67E + 1	; ..no, Text is in graphics area - BRK
+LF69E:  tax			; This is the page AFTER the last to clear
+        tya			; Clear accumulator
+
+	; CLEAR GRAPHICS MEMORY - A PAGE AT A TIME
+
+LF6A0:  sta     ($53),y		; Clear graphics memory byte to zero
+        dey			;
+        bne     LF6A0		; ..do the complete page
+        inc     $54		; Point to the next page
+        cpx     $54		; Cleared all the graphics pages ?
+        bne     LF6A0		; ..no, so clear this page too
+
+	; SET UP POINT PLOT VECTORS & INITIALISE VDG
+
+LF6AB:
+        ldy     L0052		; Get the graphics Mode number
+        lda     LF6D8,y		; Get the MSB point plot routine address
+        sta     $03FF		; ..into the MSB point plot vector
+        lda     LF6D3,y		; Get the LSB point plot routine address
+        sta     L03FE		; ..into the LSB point plot vector
+        lda     LF6DD,y		; Get the 6847 VDG Control Byte
+        sta     $B000		; ..and set up the VDG graphic mode
+        jmp     LC558		; ..back to the interpreter
+
+;    Perform 'CLEAR 0'
+;    -----------------
+;  
+;  - Enter with Y=0
+	
+LF6C2:  lda     #$40		; Get graphics space character
+LF6C4:  sta     $8000,y		; Clear byte of upper screen page
+        sta     $8100,y		; Clear byte of lower screen page
+        dey			;
+        bne     LF6C4		; ..clear all 512 bytes of the screen
+	beq	LF6AB		; Set up point plot vectors & initialise VDG
+ 
+
+;    Graphics Mode Control Data
+;    --------------------------
+;  
+;    Graphics Page Limit used by CLEAR 1 to Clear 4
+;    ----------------------------------------------
+
+LF6CF:  .byte	$84, $86, $8c, $98
+
+;    Point Plot Routine LSBs for Graphic Modes 0 to 4
+;    ------------------------------------------------
+
+LF6D3:  .byte  <plot0, <plot1, <plot2, <plot3, <plot4
+
+;    Point Plot Routine MSBs for Graphic Modes 0 to 4
+;    ------------------------------------------------
+LF6D8:  .byte  >plot0, >plot1, >plot2, >plot3, >plot4
+
+;    VDG Control Byte for Graphic Modes 0 to 4
+;    -----------------------------------------
+
+LF6DD:  .byte   $00, $30, $70, $B0, $F0
+
+;    Mode 0 Point PLot Routine
+;    -------------------------
+;  
+;  - Screen Resolution: X=0 to 63, Y=0 TO 47.
+;  - Requires : #5A, #5B = X coordinate.
+;               #5C, #5D = Y coordinate.
+;               #5E=0,1,2  to clear, set, or invert the point.
+;  - Destroys A,X,Y registers.
+
+plot0:
+        lda     $5B		; If MSB X>0..
+        ora     $5D		; ..and MSB Y>0..
+        bne     LF73A		; ..then RTS, since out of range
+        lda     $5A		; Get X coordinate
+        cmp     #$40		; Is it >=64 ?
+        bcs     LF73A		; ..yes, out of range - return
+        lsr     a		; Divide by 2 to get X byte
+        sta     $5F		; Save byte in the X direction
+        lda     #$2F		; Get Ymax = 47
+        sec			;
+        sbc     $5C		; ..and subtract the Y coordinate
+        cmp     #$30		; Is the Y coordinate out of range ?
+        bcs     LF73A		; ..yes, return
+
+	; DIVIDE Y COORDINATE BY 3 BY SUBTRACTION
+
+        ldx     #$FF		; 
+        sec			;
+LF6FD:  inx			; Y byte counter
+        sbc     #$03		; Subtract 3, since there are 3 pixels to
+				; a byte in the Y direction
+        bcs     LF6FD		;
+        adc     #$03		;
+        sta     $61		; Save remainder - this is the bit in the
+				; graphics byte block
+        txa			; This is the byte in the Y direction
+        asl     a		; )
+        asl     a		; )
+        asl     a		; )
+        asl     a		; ) Multiply by 16 to get the row offset
+        asl     a		; )       (32 bytes to a row)
+        ora     $5F		; Includes the bytes in the Y direction
+        sta     $5F		; ..and save the LSB screen byte
+        lda     #$80		; Get the MSB first screen address
+        adc     #$00		; Include any carry from the previous shifts
+        sta     $60		; ..and save the MSB screen byte
+        lda     $5A		; Get the X coordinate
+        lsr     a		; If it's odd, set the Carry flag
+        lda     $61		; Get the Y byte remainder
+        rol     a		; Include the X position
+        tay			; ..and use as pointer to the bit mask table
+        lda     LF7C9+2,y	; Get the appropriate bit mask from table
+
+;  Point Clear/Set/Invert subroutine
+;    ---------------------------------
+;  
+;  - Entry: (#5F) = Byte address
+;           Acc = Bit mask
+;           #5E = 0, 1, 2 to clear, set, or invert the point
+
+LF720:  ldy     #$00		; 
+        ldx     $5E		;
+        dex			;
+        beq     LF736		;
+        dex			;
+        beq     LF731		;
+
+;  Clear point subroutine
+;  ----------------------
+
+        eor     #$FF		;
+        and     ($5F),y		;
+        sta     ($5F),y		;
+        rts			;
+
+;  Invert point subroutine
+;  -----------------------
+
+LF731:  eor     ($5F),y		;
+        sta     ($5F),y		;
+        rts			;
+
+;  Set point sbroutine
+;  -------------------
+
+LF736:  ora     ($5F),y		;
+        sta     ($5F),y		;
+LF73A:  rts			;
+
+;  Mode 1 Point Plot subroutine
+;    ----------------------------
+;  
+;  - Screen Resolution: X=0 to 127, Y=0 TO 64.
+;  - Requires : #5A, #5B = X coordinate
+;               #5C, #5D = Y coordinate
+;               #5E=0,1,2  to clear, set, or invert the point.
+;  - Destroys A,X,Y registers.
+
+plot1:	lda     $5B		; If MSB X>0..
+        ora     $5D		; ..and MSB Y>0..
+        bne     LF73A		; ..then RTS, since out of range
+        lda     $5A		; Get X coordinate
+        bmi     LF73A		; If >127 then RTS, since out of range
+        lsr     a		; )
+        lsr     a		; )
+        lsr     a		; ) Divide by 8 to get X
+        sta     $5F		; Save the byte in the X direction
+        lda     #$3F		; Get Ymax = 63
+        sec			;
+        sbc     $5C		; ..and subtract the Y coordinate
+	cmp	#$40		; Is the Y coordinate out of range ?
+        bcc     LF785		; ..no, multiply Y offset by 16 to get 
+				; bytes/row, calculate byte address, get bit
+				; mask and clear/set/invert as appropriate
+        rts			;
+
+;    Mode 2 Point Plot subroutine
+;    ----------------------------
+;  
+;  - Screen Resolution: X=0 to 127, Y=0 TO 95.
+;  - Requires : #5A, #5B = X coordinate
+;               #5C, #5D = Y coordinate
+;               #5E=0,1,2  to clear, set, or invert the point.
+;  - Destroys A,X,Y registers.
+
+plot2:  lda     $5B		; If MSB X>0..
+        ora     $5D		; ..and MSB Y>0..
+        bne     LF73A		; ..then RTS, since out of range
+        lda     $5A		; Get X coordinate
+        bmi     LF73A		; If >127 then RTS, since out of range
+        lsr     a		; )
+        lsr     a		; )
+        lsr     a		; ) Divide by 8 to get X
+        sta     $5F		; Save the byte in the X direction 
+        lda     #$5F		; Get Ymax = 95
+        sec			; 
+        sbc     $5C		; ..and subtract the Y coordinate
+        cmp     #$60		; Is the Y coordinate out of range ?
+        bcc     LF785		; ..no, multiply Y offset by 16 to get
+				; bytes/row, calculate byte address, get bit
+				; mask and clear/set/invert as appropriate
+LF76C:  rts			;
+   
+;    Mode 3 Point Plot subroutine
+;    ----------------------------
+;  
+;  - Screen Resolution: X=0 to 127, Y=0 TO 191.
+;  - Requires : #5A, #5B = X coordinate
+;               #5C, #5D = Y coordinate
+;               #5E=0,1,2  to clear, set, or invert the point.
+;  - Destroys A,X,Y registers.
+
+plot3:  lda     $5B		; If MSB X>0..
+        ora     $5D		; ..and MSB Y>0..
+        bne     LF73A		; ..then RTS, since out of range
+        lda     $5A		; Get X coordinate
+        bmi     LF73A		; If >127 then RTS, since out of range
+        lsr     a		; )
+        lsr     a		; )
+        lsr     a		; ) Divide by 8 to get X
+        sta     $5F		; Save the byte in the X directio
+        lda     #$BF		; Get Ymax = 191
+        sec			;
+        sbc     $5C		; ..and subtract the Y coordinate
+        cmp     #$C0		; Is the Y coordinate out of range ?
+        bcs     LF73A		; ..yes, RTS
+
+;      HERE: ACC = Y IN ROWS DOWN FROM SCREEN TOP
+;  	  ?#5F = X BYTE
+;  	  ?#5A = X BIT IN THE BYTE
+;  
+;      MULTIPLY Y BY 16 TO GET ROW OFFSET
+
+LF785:  ldy     #$00		; 
+        sty     $60		; Clear w/s
+LF789:  asl     a		; ) LSB * 2
+        rol     $60		; ..and MSB * 2
+        asl     a		; ) LSB * 4
+        rol     $60		; ..and MSB * 4
+        asl     a		; ) LSB * 8
+        rol     $60		; ..and MSB * 8
+        asl     a		; ) LSB * 16 
+        rol     $60		; ..and MSB * 16
+        adc     $5F		; Add X byte to LSB total address
+        sta     $5F		; ..and store it
+        lda     $60		; Get MSB Y offset
+        adc     #$80		; Add MSB screen start address
+        sta     $60		; ..and store it
+        lda     $5A		; Get LSB X coordinate
+        and     #$07		; Clear all but the 3 LSBs
+        tay			; ..which is the index to the bit mask table
+        lda     LF7C9,y 	; Get the appropriate bit mask
+        jmp     LF720		; ..and clear/set/invert the bit as required
+
+;    Mode 4 Point Plot subroutine
+;    ----------------------------
+;  
+;  - Screen Resolution: X=0 to 255, Y=0 TO 191.
+;  - Requires : #5A, #5B = X coordinate
+;               #5C, #5D = Y coordinate
+;               #5E=0,1,2  to clear, set, or invert the point.
+;  - Destroys A,X,Y registers.
+
+plot4: 	lda     $5B		; If MSB X>0..   LSR A
+        ora     $5D		; ..and MSB Y>0..
+        bne     LF76C		; ..then RTS, since out of range
+        lda     $5A		; Get X coordinate
+        lsr     a		; )
+        lsr     a		; )
+        lsr     a		; ) Divide by 8 to get X
+        sta     $5F		; Save the byte in the X direction
+        lda     #$BF		; Get Ymax = 191
+        sec			;
+        sbc     $5C		; ..and subtract the Y coordinate
+        cmp     #$C0		; Is the Y coordinate out of range ?
+        bcs     LF76C		; ..yes, RTS
+        ldy     #$00		;
+        sty     $60		; Clear MSB Y offset
+        asl     a		; Multiply row LSB by 2
+        rol     $60		; and multiply row MSB by 2
+        bpl     LF789		; Multiply Y offset by 16 to get 32
+				; bytes/row, calculate byte address, get bit
+				; mask and clear/set/invert as appropriate
+
+;    Graphics Bit Mask Table
+;    -----------------------
+;  
+;  - Used by Mode 1 to 4 point plot routines.
+
+LF7C9:  .byte   $80, $40, $20, $10, $08, $04, $02, $01
+
+;    Print ASCII String subroutine
+;    -----------------------------
+;  
+;  - Prints the string following the subroutine call up to a negative byte
+;    at which execution is recommenced.
+
+LF7D1:  pla			; Get the return address LSB from stack
+        sta     L00E8		; ..into w/s
+        pla			; Get the return address MSB from stack
+        sta     $E9		; ..into w/s
+LF7D7:  ldy     #$00		;
+        inc     L00E8		; Point to the next byte of embedded text
+        bne     LF7DF		;
+        inc     $E9		; Increment MSB text pointer if carried over
+LF7DF:  lda     (L00E8),y	; Get the next character of embedded text
+        bmi     LF7E9		; ..reached terminator - execute from here
+        jsr     LFFF4		; Send character to OSWRCH
+        jmp     LF7D7		; ..and go for the next character
+LF7E9:  jmp     (L00E8)		; Continue execution from the negative byte
+
+;     Print the (#D4) Word in Hexadecimal Followed by a space subroutine
+;    -------------------------------------------------------------------
+;  
+;  - Prints ?#D5, ?#D4 in hex, then a space, ?#D7, ?#D6 in hex, then another
+;    space.
+;  - Returns with X=#D8, Y register preserved.
+
+LF7EC:  ldx     #$D4		; 
+
+;    Print a 4 Byte Word in Hexadecimal followed by a Space subroutine
+;    -----------------------------------------------------------------
+;  
+;  - Prints a word in hex in the order X+1, X, space, X+3, X+2, space.
+;  - Preserves the Y resister and increments the X register 4 times.
+
+        jsr     LF7F1		; print 1st vector in hex
+
+;    Print a 2 Byte Vector in Hexadecimal followed by a Space subroutine
+;    -------------------------------------------------------------------
+;  
+;  - Prints in hex a vector in the order X+1, X and then a space.
+;  - Preserves the Y resister and increments the X register twice.
+
+LF7F1:  lda     $01, x		; Get MSB of vector
+        jsr     LF802		; Print in hex followed by a space
+        inx			;
+        inx			;
+        lda     $FE, x		; Get LSB of vector
+
+;    Print a Byte in Hexadecimal followed by a Space subroutine
+;    ----------------------------------------------------------
+;  
+;  - Prints the contents of the accumulator in hex followed by a space.
+;  - X and Y registers preserved.
+
+        jsr     LF802		; Print character in acc in hex via OSWRCH
+
+;    Print a Space subroutine
+;    ------------------------
+
+LF7FD:  lda     #$20		; Get <SPC>
+        jmp     LFFF4		; Print via OSWRCH
+
+;    Print a Byte in Hexadecimal subroutine
+;    --------------------------------------
+;  
+;  - Prints the contents of the accumulator in hex
+;  - X and Y registers preserved.
+
+LF802:  pha			; Save number
+        lsr     a		; )
+        lsr     a		; )
+        lsr     a		; ) Shift the upper nibble down to the
+        lsr     a		; ) lower
+        jsr     LF80B		; Print nibble in hex via OSWRCH
+        pla			; Restore number
+LF80B:  and     #$0F		; Clear upper nibble
+        cmp     #$0A		; Is it a letter ?
+        bcc     LF813		; ..yes
+        adc     #$06		; ..no, it's a numeric digit
+LF813:  adc     #$30		; Convert to ASCII
+        jmp     LFFF4		; ..and print via OSWRCH
+
+;    Copy String from #100 Buffer to #140 Buffer subroutine
+;    ------------------------------------------------------
+;  
+;  - Copies a quoted string from the Direct Mode buffer at #100 to the String
+;    Buffer at #140, terminating the string with #D.
+;  - If <"> is not the first non-space character found, returns with
+;    a null string at #140.
+;  - Sets up the pointer (#C9) to point to the start of the string at #140.
+;  - Enter with Y register pointing to (spaces leading to) the quotes at the
+;    start of the string.
+;  - Returns with Y pointing to the string termination quotes.
+;  - Returns with Acc=1, X=#C9.
+
+LF818:  jsr     LF876		; Get to the first non-space character
+        ldx     #$00		; Clear pointer to #140 buffer
+        cmp     #$22		; Is the 1st non-space character '"' ?
+        beq     LF827		; ..yes, found start of string
+        inx			; ..no, point to #140
+        bne     LF83F		; ..and terminate the string there with #D
+LF824:  jmp     LFA7D		; ..unless ran out of buffer - 'SYN?' & BRK
+
+	; COPY STRING FROM #100 TO #140
+
+LF827:  iny			; Point to next character in #100 buffer
+        lda     $0100,y		; ..and get it
+        cmp     #$0D		; Is it <CR> ?
+        beq     LF824		; ..yes, run out of buffer - 'SYN?' & BRK
+        sta     $0140, x	; Copy to #140 buffer
+        inx			; Point to next position in #140 buffer
+        cmp     #$22		; Was this the '"' string terminator ?
+        bne     LF827		; ..no, keep copying until it's reached
+        iny			; Point past the '"' in the #100 buffer
+        lda     $0100,y		; ..and get this character
+        cmp     #$22		; Is this '"' as well ?
+        beq     LF827		; ..yes, double quotes mean use single quotes in string 
+				; - NOT the end of string so keep searching
+
+	; TERMINATE #140 STRING AND RETURN
+
+LF83F:  lda     #$0D		; Get <CR>
+        sta     $013F, x	; ..and terminate the #140 string
+        lda     #$40		; )
+        sta     L00C9		; )
+        lda     #$01		; ) Set (#CA) to point to start of #140
+        sta     $CA		; ) string
+        ldx     #$C9		;
+        rts			;
+
+;    Transfer Tape File Control Block and Test Name subroutine
+;    ---------------------------------------------------------
+;  
+;  - Transfers the 10 bytes in zero page starting at X to workspace starting
+;    at #C9.
+;  - Checks that the filename at (#C9) is less than 14 bytes long - if it
+;    exceeds this length, the message 'NAME' is printed, and BRK executed.
+;  - Returns with zero flag set if the string length is zero.
+
+LF84F:  ldy     #$00		;
+LF851:  lda     $00, x		; Get byte from here..
+        sta     L00C9,y		; ..into there
+        inx			; 
+        iny			;
+        cpy     #$0A		; Done all 10 bytes ?
+        bcc     LF851		; ..no, keep copying
+        ldy     #$FF		; Initialise string pointer
+        lda     #$0D		; Get <CR> string terminator
+LF860:  iny			; Point to next character in filename
+        cpy     #$0E		; Exceeded allowing string length ?
+        bcs     LF86C		; ..yes, print 'NAME' and execute BRK
+        cmp     (L00C9),y	; ..no, but is this char the terminator ?
+        bne     LF860		; ..no, keep checking
+        cpy     #$00		;  Set zero flag if string length is zero
+        rts			;
+
+LF86C:  jsr     LF7D1		; Print the following text string
+	.byte "NAME"
+	nop
+        brk
+
+;    Get Next Non-Space Character from #100 Buffer subroutine
+;    --------------------------------------------------------
+;  
+;  - Increments Y to return pointing to the first non-space character in the
+;    Direct Mode Buffer at #100.
+;  - Enter at #F876.
+
+LF875:  iny			; Point to next character
+LF876:  lda     $0100,y		; Get character from Direct Mode Buffer
+        cmp     #$20		; Is it <SPC> ?
+        beq     LF875		; ..no, try the next character
+        rts			;
+
+;    Convert ASCII Hexadecimal Digit to Binary subroutine
+;    ----------------------------------------------------
+;  
+;  - Converts an ASCII Hexadecimal character in the accumulator to its binary
+;    value.
+;  - If valid hex, returns with binary value in accumulator and Carry clear.
+;  - X and Y registers preserved.
+
+LF87E:  cmp     #$30		; Is it > '0' ?
+        bcc     LF891		; ..no, invalid hex character - return
+        cmp     #$3A		; Is it < '9' ?
+        bcc     LF88E		; ..yes, valid hex character
+        sbc     #$07		; Convert so 'A'=#3A to 'F'=#3F
+        bcc     LF891		; Invalid if it was < 'A' but not a number
+        cmp     #$40		; Is it a letter higher than 'F' ?
+        bcs     LF890		; ..yes, invalid hex character - return
+LF88E:  and     #$0F		; Mask off top nibble
+LF890:  rts			; Return with carry clear
+LF891:  sec			; 
+        rts			; Return with carry set
+
+;    Read 4 Hexadecimal Characters from #100 buffer subroutine
+;    ---------------------------------------------------------
+;  
+;  - Reads a hex number as an ASCII string in the Direct Mode buffer pointed
+;    to by #100,Y and stores the 2 byte result in the zero page vector
+;    X (LSB) to X+1 (MSB).
+;  - Interpretation stops at the first invalid hex digit, and returns with
+;    the Y register pointing to this character.
+;  - The zero page byte X+2 is used for workspace.
+;  - Sets Zero flag if the first character is invalid.
+
+LF893:  lda     #$00		; 
+        sta     $00, x		; Clear LSB vector
+        sta     $01, x		; Clear MSB vector
+        sta     $02, x		; Clear w/s
+        jsr     LF876		; Get to next non-space char in #100 buffer
+LF89E:  lda     $0100,y		; Get character from buffer
+        jsr     LF87E		; Convert ASCII hex digit to binary nibble
+        bcs     LF8BB		; ..invalid hex, quit
+        asl     a		; )
+        asl     a		; )
+        asl     a		; )
+        asl     a		; ) Transfer lower nibble to upper nibble
+        sty     $02, x		;  Save current state of buffer pointer
+
+	; SHIFT NEW NIBBLE INTO THE VECTOR
+
+        ldy     #$04		; 4 bits to a nibble
+LF8AE:  asl     a		; Shift into carry..
+        rol     $00, x		; ..into LSB vector..
+        rol     $01, x		; ..and into MSB vector
+        dey			;
+        bne     LF8AE		; ..do all 4 bits
+        ldy     $02, x		; Restore buffer point
+        iny			; Point to next character
+        bne     LF89E		; ..and try to decode that to
+LF8BB:  lda     $02, x		; This will be zero if failed to decode
+        rts			; the first hex digit successfully
+
+LF8BE:  .byte   "CAT", >cat, <cat	
+	.byte   "LOAD", >load, <load	
+	.byte   "SAVE", >save, <save	
+	.byte	"RUN", >run, <run	
+	.byte	"MON", >mon, <mon	
+	.byte   "NOMON", >nomon, <nomon 
+	.byte   "FLOAD", >fload, <fload 
+	.byte   "DOS", $0D, >DOS, <DOS  
+	.byte   "", >cos_error, <cos_error
+
+;    COS Interpreter subroutine
+;    --------------------------
+;  
+;  - All '*' prefixed commands are interpreted here.
+;  - Exits to all COS routines with carry clear, decimal mode flag cleared
+;    and X register = 0
+;  - Jumps to default COS error handler at #F926 if cannot match command.
+;  - Clears the FLOAD flag #DD to zero.
+
+oscli:  ldx	#$ff		; Initialise the command table pointer
+        cld			;
+LF8F2:  ldy     #$00		;
+        sty     $DD		; Clear FLOAD flag (to not FLOAD mode)
+        jsr     LF876		; Get next non-space char from #100 buffer
+        dey			;
+LF8FA:  iny			; Point to next character in #100 buffer
+        inx			;
+LF8FC:  lda     LF8BE, x	; Get next character of the command word
+				; under comparison from the command table
+        bmi     LF919		; ..reached MSB command address - success !
+        cmp     $0100,y		; Same as character under interpretation ?
+        beq     LF8FA		; ..yes, now try to match the next character
+
+	; COMMAND WORD MATCH FAILED - SKIP TO THE END OF THE WORD IN THE TABLE
+
+        dex			; 
+LF907:  inx			; Point to next character of failed word
+        lda     LF8BE, x	; ..and get it
+        bpl     LF907		; ..not reached MSB address - keep searching
+        inx			; Point to LSB address in command table
+        lda     $0100,y		; Get the failed character from the buffer
+        cmp     #$2E		; Is it the command abbreviator '.' ?
+        bne     LF8F2		; ..no, so try to match the next command
+
+	; SUCCESSFUL MATCH OF ABBREVIATED COMMAND
+
+        iny			; Skip past the '.' abbreviator
+        dex			; Point to the MSB address in command table
+        bcs     LF8FC		; ..and fetch it
+
+	; COMMAND WORD MATCH ( OR OUT OF TABLE )
+
+LF919:  sta     $CA		; Store MSB address in w/s
+        lda     LF8BE+1, x	; Get LSB address from command table
+        sta     L00C9		; Store LSB address in w/s
+        clc			; 
+        ldx     #$00		; Clear X register before exit
+        jmp     (L00C9)		; Jump to execute the COS command
+
+;    Default COS Error Handler
+;    -------------------------
+;  
+;  - Sends the string 'COM?' to OSWRCH and then executes BRK.
+
+cos_error:
+        jsr     LF7D1		; Send the following string to WRCHAR
+        .byte   "COM?"
+	nop			; Negative string termination byte
+LF92E:  brk			;
+
+;   Load an Un-Named File subroutine
+;    --------------------------------
+;  File format : <MSB file  end  address>
+;                  <LSB file  end  address>
+;                  <MSB file start address>
+;                  <LSB file start address>
+;                  <.........data.........>
+;  
+;  - Used by OSLOAD.
+;  - Entry: #CB = LSB User specified load address
+;           #CC = MSB User specified load address
+;           #CD = *LOAD flag - if bit 7 is set then the load address at
+;                 (#CB) is to be used instead of the file's load address
+;  - Uses:  #D4 = LSB Data start address from header
+;           #D5 = MSB Data start address from header
+;           #D6 = LSB Data  end  address from header
+;           #D7 = MSB Data  end  address from header
+
+LF92F:  jsr     LFB8E		; Wait for high tone leader, read the 4 byte
+				; header preamble, and test it for '****'
+        bvc     LF92E		; ..<CTRL> key was pressed - execute BRK
+        beq     LF92F		; ..found '****' - skip this named file
+
+	; FOUND UN-NAMED FILE
+
+        jsr     LFC2B		; Get file start address to (#CB)
+
+	; GET DATA FROM TAPE INTO MEMORY
+
+        ldy     #$00		; Clear memory pointer
+LF93B:  jsr     LFFD4		; Get byte of data from tape via OSBGET
+        sta     (L00CB),y	; ..and dump to memory
+        inc     L00CB		; Increment LSB memory pointer
+        bne     LF946		;
+        inc     $CC		; Increment MSB memory pointer if overflow
+LF946:  ldx     #$D4		; Point to start address
+        jsr     LFA08		; Increment start address, test to see if
+				; have reached the end address
+        bne     LF93B		; ..not loaded all the file, get next byte
+
+	; FILE LOADED - RETURN
+
+        sec			; )
+LF94E:  ror     $DD		; )
+        clc			; )
+        ror     $DD		; ) Set bit 6 and clear bit 7 of FLOAD flag
+        plp			; Restore interrupt status, pushed by OSLOAD
+        rts			;
+
+;    Execute the Command '*FLOAD' subroutine
+;    ---------------------------------------
+;  
+fload:  sec			;
+        ror     $DD		; Set bit 7 of FLOAD flag, indicating FLOAD
+
+;    Execute the Command '*LOAD' subroutine
+;    --------------------------------------
+;  
+;  - Exits via the LODVEC (#20C)
+
+load:   jsr     LF818		; Copy quoted filename from #100 buffer to the #140 buffer
+        ldx     #$CB		; Point to the vector at #CB, #CC
+        jsr     LF893		; ..and interpret the load address to store it here
+        beq     LF966		; ..can't interpret load address - so the
+				; file's own load address is to be used
+        lda     #$FF		;
+        sta     $CD		; Set the load flag, so that the interpreted
+				; start address is used, not the file's one
+LF966:  jsr     LFA76		; Do COS interpreter post test
+        ldx     #$C9		; File data starts at #C9
+        jmp     (LODVEC)		; Jump to OSLOAD
+
+;   OSLOAD Load File subroutine
+;    ---------------------------
+;  
+;  - Entry: 0,X = LSB File name string address
+;           1,X = MSB File name string address
+;           2,X = LSB Data dump start address
+;           3,X = MSB Data dump start address
+;           4,X : If bit 7 is clear, then the file's own start address is
+;                 to be used
+;           #DD = FLOAD flag - bit 7 is set if in FLOAD mode
+;  
+;  - Uses:  #C9 = LSB File name string address
+;           #CA = MSB File name string address
+;           #CB = LSB Data dump start address
+;           #CC = MSB Data dump start address
+;           #CD = load flag - if bit 7 is set, then the load address at
+;                 (#CB) is to be used instead of the file's load address
+;           #D0 = MSB Current block number
+;           #D1 = LSB Current block number
+;  
+;  - Header format: <*>                      )
+;                   <*>                      )
+;                   <*>                      )
+;                   <*>                      ) Header preamble
+;                   <Filename>               ) Name is 1 to 13 bytes long
+;                   <Status Flag>            ) Bit 7 clear if last block
+;                                            ) Bit 6 clear to skip block
+;                                            ) Bit 5 clear if first block
+;                   <LSB block number>
+;                   <MSB block number>       ) Always zero
+;                   <Bytes in block>
+;                   <MSB run address>
+;                   <LSB run address>
+;                   <MSB block load address>
+;                   <LSB block load address>
+;  
+;  - Data format:   <....data....>           ) 1 to #FF bytes
+;                   <Checksum>               ) LSB sum of all data bytes
+
+osload: php			; Save interrupt status
+        sei			; No interrupts !
+        jsr     LF84F		; Transfer file data to w/s starting at #C9
+				; and test length of filename
+        php			; Save result of filename test
+        jsr     LFC3E		; Send message 'PLAY TAPE' to WRCHAR & wait for keypress
+        plp			; Restore result of filename test
+        beq     LF92F		;  ..it's zero - load un-named file
+        lda     #$00		; 
+        sta     $D0		; Clear LSB current block number
+        sta     $D1		; Clear MSB current block number
+LF980:  jsr     LF9A2		; Load the block into memory
+        bcc     LF94E		; ..done last block - exit
+        inc     $D0		; Increment LSB current block number
+        inc     $CC		; Increment MSB data dump address
+        bne     LF980		; ..and load the next block
+        clc			; ..unless overflowed address range
+        bcc     LF94E		; Exit to clear bit 6 of FLOAD flag to indicate failure
+   
+;    Print Filename subroutine
+;    -------------------------
+;  
+;  - Enter at #F992 with Y=0.
+;  - Prints the filename starting at #ED and terminated with <CR>.
+;  - Pads out the filename with spaces to a length of 15 characters.
+;  - Returns with carry set.
+   
+LF98E:  jsr     LFFF4		; Send character to WRCHAR
+        iny			; Point to next character of filename
+
+	; ENTER HERE
+
+LF992:  lda     $ED,y		; Get character of filename
+        cmp     #$0D		; Is it the filename terminator, <CR> ?
+        bne     LF98E		; ..no, print it & fetch the next character
+
+	; PAD OUT PRINT LINE TO 15 CHARACTERS
+
+LF999:  iny			; Increment character counter
+        jsr     LF7FD		; Send a space to WRCHAR
+        cpy     #$0E		; Reached a count of 14 ?
+        bcc     LF999		; ..no, send another space to WRCHAR
+        rts			;
+
+;    Load Current Block subroutine
+;    -----------------------------
+;  
+;  - Entry: #C9 = LSB File name string address
+;           #CA = MSB File name string address
+;           #CB = LSB Data dump start  address
+;           #CC = MSB Data dump start  address
+;           #CD = load flag - if bit 7 is set, then the load address at
+;                 (#CB) is to be used instead of the file's load address
+;           #D0 = MSB Current block number
+;           #D1 = LSB Current block number
+;           #DD = FLOAD flag - bit 7 is set if in FLOAD mode
+;  
+;  Uses:    #D4 = MSB block address of block under examination
+;           #D5 = MSB block address of block under examination
+;           #D6 = LSB  run  address of block under examination
+;           #D7 = MSB  run  address of block under examination
+;           #D8 = Number of  bytes  in block under examination
+;           #D9 = LSB block  number of block under examination
+;           #DA = MSB block  number of block under examination
+;           #DB = Status flag of block under examination
+;           #DC = Computed checksum of block loaded into memory
+;           #ED = Start of filename of block under examination
+;  
+
+LF9A2:  lda	#0		;
+        sta     $DC		; Clear checksum
+
+	; GET HEADER PREAMBLE OF 4 ASTERISKS
+
+        jsr     LFB8E		; Wait for high tone leader, read the 4 byte
+				; header preamble, and test it for '****'
+        bvc     LF9A2+1		; ..<CTRL> key was pressed - execute BRK
+        bne     LF9A2		; Preamble not correct - try again
+
+	; GET FILENAME AND TEST IT'S THE RIGHT ONE
+
+        jsr     LFBC9		; Get filename from tape, and check it
+				; against the reference at (#C9)
+        php			; Save the result of the filename test
+        jsr     LFBE2 		; Get the remaining 8 bytes of the header
+        plp			; Restore the result of the filename test
+        beq     LF9C7		; ..it's correct
+
+	; DEAL WITH INCORRECT FILENAME ENCOUNTERED
+
+        lda     $DB		; Get the header status flag
+        and     #$20		; Is bit 5 Clear, indicating 1st block ?
+        ora     $EA		; ..and is the NOMON flag clear ?
+        bne     LF9A2		; ..no, go on to try the next block
+        jsr     LF992		; ..yes, print the erroneous filename
+        jsr     LFFED		; ..followed by <CR><LF>
+        bne     LF9A2		; ..and go on to try the next block 
+
+	; CHECK BLOCK NUMBER
+
+LF9C7:  ldx     #$02		; Point to LSB block number
+        lda     $DD		; In FLOAD mode ?
+        bmi     LF9E0		; ..yes, load block no matter what it is
+LF9CD:  lda     $CF, x		; Get LSB OR MSB current block number
+        cmp     $D8, x		; Is this the block under examination ?
+        bcs     LF9DB		; ..Perhaps, it's less than or equal to
+
+	; BLOCK NUMBER LARGER THAN THAT REQUIRED
+
+        lda     #$05		; 
+        jsr     LFC40		; Print message 'REWIND TAPE'
+        jsr     LFC3E		; Print message 'PLAY TAPE'
+LF9DB:  bne     LF9A2		; ..and try the next block
+        dex			;
+        bne     LF9CD		; ..test the MSB block number too
+
+	; LOAD BLOCK INTO MEMORY
+
+LF9E0:  jsr     LFC2B		; Set up file loading address
+        bit     $DB		; Test status - allowed to load this block ?
+        bvc     LF9F2		; ..no, do 'SUM' error
+        dey			; 
+LF9E8:  iny			; Point to next data memory location
+        jsr     LFFD4		; Get data byte from tape via OSBGET
+        sta     (L00CB),y	; ..and dump to memory
+        cpy     $D8		; Got all the bytes in the block ?
+        bne     LF9E8		; ..no, keep loading
+LF9F2:  lda     $DC		; Get checksum
+        sta     $CE		; ..into w/s
+        jsr     LFFD4		; Get checksum from tape via OSBGET
+        cmp     $CE		; Same as checksum calculated during load ?
+        beq     LFA05		; ..yes, test for last block and return
+
+	; DEAL WITH CHECKSUM ERROR
+
+        jsr     LF7D1		; Send the follwing string to WRCHAR
+        .byte   "SUM"		;
+        nop			; String termination byte
+        brk			;
+
+LFA05:  rol     $DB		; Clear carry if last block flag clear
+        rts			; 
+
+;    Increment and Test Vector subroutine
+;    ------------------------------------
+;  
+;  - Increments the 2 byte vector at (0),X and compares with (2),X.
+;  - Returns with Zero flag set if the two vectors are equal.
+
+LFA08:  inc     $00, x		; Increment LSB vector 1
+        bne     LFA0E
+        inc     $01, x		; Increment MSB vector 1 if overflow
+LFA0E:  lda     $00, x		; Get LSB vector 1
+        cmp     $02, x		; Same as LSB vector 2 ?
+        bne     LFA18		; ..no, return with Z flag clear
+        lda     $01, x		; Get MSB vector 1
+        cmp     $03, x		; Same as MSB vector 2 ?
+LFA18:  rts
+
+;    Execute the Command '*NOMON' subroutine
+;    ---------------------------------------
+;  
+;  - Sets all the bits of the NOMON flag at #EA.
+;  - Enter with X=0.
+
+nomon:  dex			; Now X=#FF
+
+;    Execute the Command '*MON' subroutine
+;    -------------------------------------
+;  
+;  - Clears all the bits of the NOMON flag at #EA.
+;  - Enter with X=0.
+
+mon:    jsr     LFA76		; Do COS interpreter post test
+        stx     $EA		; Set/clear the NOMON flag as appropriate
+LFA1F:  rts
+
+;    Execute the Command '*RUN'
+;    --------------------------
+
+run:	jsr     load		; Execute '*LOAD'
+        bit     $DD		; 
+        bvs     LFA73		; If bit 6 of #DD is set then jump via (#CB)
+        jmp     (L00D6)		; ..otherwise
+
+;    Execute the Command '*CAT'
+;    --------------------------
+
+cat:    php			; Save status
+        jsr     LFA76		; Do COS interpreter post test
+        jsr     LFC3E		; Print message 'PLAY TAPE' & get keypress
+LFA31:  jsr     LFB8E		; Wait for high tone leader, read the 4 byte
+				; header preamble, and test it
+        bvs     LFA38		; ..if <CTRL> not pressed, print header
+        plp			; Restore status
+        rts			;
+LFA38:  beq     LFA44		; ..deal with named block
+
+	; DEAL WITH UN-NAMED FILE
+
+        ldy     #$00		; 
+        jsr     LF999		; Print blank filename
+        jsr     LF7EC		; Print start & last+1 address in hex
+        bne     LFA5D		; Send <CR><LF> to WRCHAR, go for next block
+
+	; DEAL WITH NAMED BLOCK
+
+LFA44:  jsr     LFBC9		; Get filename from tape via OSBGET
+        jsr     LFBE2		; Get rest of header from tape via OSBGET
+        jsr     LF992		; Print header, padded out to 15 characters
+        jsr     LF7EC		; Print the block address at (#D4), a space,
+				; then the run address at (#D6) in hex
+        rol     $DB		; If bit 6 of the block status flag is clear
+        bpl     LFA5D		; ..then omit printing the block number
+        inx			; Now X=#D9
+        jsr     LF7F1		; Print the block number at (#D9) in hex
+        lda     $FD, x		; Get the number of bytes in the block (#D8)
+        jsr     LF802		; ..and print it in hex
+LFA5D:  jsr     LFFED		; Send <CR><LF> to WRCHAR
+        bne     LFA31		; ..and go on to read the next header
+        jmp     LFFED
+
+;    Read 4 Hex Characters from #100 buffer with Invalid Test subroutine
+;    -------------------------------------------------------------------
+;  
+;  - Reads a hex number as an ASCII string in the Direct Mode buffer pointed
+;    to by #100,Y and stores the 2 byte result in the zero page vector
+;    X (LSB) to X+1 (MSB).
+;  - Interpretation stops at the first invalid hex digit, and returns with
+;    the Y register pointing to this character.
+;  - The zero page byte X+2 is used for workspace.
+;  - The Zero flag is set if the first character is invalid.
+;  - 'SYN?' is printed and BRK executed if the first character is invalid.
+
+LFA65:  jsr     LF893		; Interpret hex number into vector X, X+1
+        beq     LFA7D		; ..failed - print 'SYN?' and execute BRK
+        rts			;
+
+;    Get a Hexadecimal Number and Jump There
+;    ---------------------------------------
+
+        ldx     #$CB		; Point to vector at #CB, #CC
+        jsr     LFA65		; ..and interpret the hex number at #100,Y
+        jsr     LFA76		; Do the interpreter post test
+LFA73:  jmp     (L00CB)		; Jump to the address just interpreted
+
+;    COS Post Test subroutine
+;    ------------------------
+;  
+;  - Checks for <CR> or spaces leading to a <CR> in the #100 buffer after the
+;    current position pointed to by the Y register on entry.
+;  - Prints 'SYN?' and executes BRK on failure.
+
+LFA76:  jsr     LF876		; Get the first non-space character from the #100,Y buffer
+        cmp     #$0D		; Is it <CR> ?
+        beq     LFA1F		; ..yes, RTS
+LFA7D:  jsr     LF7D1		; ..no, send the following string to WRCHAR
+
+        .byte   "SYN?"		;
+        nop
+        brk
+
+;    Save an Un-Named File subroutine
+;    --------------------------------
+;  
+;  - File format : <MSB file  end  address>
+;                  <LSB file  end  address>
+;                  <MSB file start address>
+;                  <LSB file start address>
+;                  <.........data.........>
+;  
+;  - Used by OSSAVE.
+;  - Entry: #CB = LSB File reload start address
+;           #CC = MSB File reload start address
+;           #CD = LSB File reload end address+1
+;           #CE = MSB File reload end address+1
+;           #CF = LSB File start address
+;           #D0 = MSB File start address
+;           #D1 = LSB File  end  address+1
+;           #D2 = MSB File  end  address+1
+
+	; CALCULATE RELOAD ADDRESSES
+
+LFA86:  sec			; 
+        lda     $D1		; Get LSB end address+1
+        sbc     $CF		; Subtract LSB start address
+        pha			; ..and save LSB file length
+        lda     $D2		; Get MSB end address+1
+        sbc     $D0		; Subtract MSB start address
+        tay			; ..and save MSB file length
+        pla			; Restore LSB file length
+        clc			;
+        adc     L00CB		; Add LSB file reload address
+        sta     $CD		; ..and store LSB last reloaded byte+1
+        tya			; Restore MSB file length
+        adc     $CC		; Add MSB file reload address
+        sta     $CE		; ..and store MSB last reloaded byte+1
+
+	; SEND FILE HEADER TO TAPE
+
+        ldy     #$04		; Set up byte counter - 4 bytes in header
+LFA9E:  lda     $CA,y		; Get file reload start and end addresses
+        jsr     LFFD1		; ..and send to tape via OSBPUT
+        dey			; Point to next address byte
+        bne     LFA9E		; ..and send all 4 bytes
+LFAA7:  lda     ($CF),y		; Get data from memory
+        jsr     LFFD1		; ..and send it to tape via OSBPUT
+        inc     $CF		; Increment LSB memory address
+        bne     LFAB2		; 
+        inc     $D0		; Increment MSB memory address if overflow
+LFAB2:  ldx     #$CB		; Point to vectors (#CB) and (#CD)
+        jsr     LFA08		; Increment (#CB) and compare with (#CD)
+        bne     LFAA7		; ..not reached end of file
+        plp			; Restore interrupt status pushed by OSSAVE
+        rts
+
+;    Execute the Command '*SAVE'
+;    ---------------------------
+;  
+;  - Sets up the file address data from #C9 to #D1, and then calls the file
+;    save routine indirected by SAVVEC at (#20E), which is normally #FAE5.
+;  
+;  - Uses:  #C9 = LSB File name string address
+;           #CA = MSB File name string address
+;           #CB = LSB Data Reload address
+;           #CC = MSB Data Reload address
+;           #CD = LSB Data Execution address
+;           #CE = MSB Data Execution address
+;           #CF = LSB Data start address
+;           #D0 = MSB Data start address
+;           #D1 = LSB Data end address + 1
+;           #D2 = MSB Data end address + 1
+
+save:   jsr     LF818		; Copy filename string from #100 buffer to the #140 buffer
+        ldx     #$CB		; Point to vector at #CB, #CC
+        jsr     LFA65		; ..and interpret start address to this vector, 
+				; printing 'SYN?' & BRK if fail
+        ldx     #$D1		; Point to vector at #D1, #D2
+        jsr     LFA65		; ..and interpret end address to this vector,
+				; printing 'SYN?' & BRK if fail
+        ldx     #$CD		; Point to vector at #CD, #CE
+        jsr     LF893		; ..and interpret run address to this vector,
+				; if it has been specified
+        php			; Save success/failure flag for the run address interpretation
+        lda     L00CB		; Get LSB start address
+        ldx     $CC		; Get MSB start address
+        plp			; Restore run address success/failure flag
+        bne     LFAD9		; ..run address was specified
+
+	; FILE RUN ADDRESS NOT SPECIFIED - SET RUN ADDRESS TO FILE START ADDRESS AS DEFAULT
+
+        sta     $CD		; Set LSB run address = LSB start address
+        stx     $CE		; Set MSB run address = MSB start address
+
+	; SET FILE START ADDRESS = RELOAD ADDRESS
+
+LFAD9:  sta     $CF		; Set LSB start address = LSB reload address
+        stx     $D0		; Set MSB start address = MSB reload address
+        jsr     LFA76		; Do COS interpreter post test
+        ldx     #$C9		; Point to file address data starting at #C9
+        jmp     (SAVVEC)		; ..and jump to OSSAVE
+
+;    Save File subroutine
+;    --------------------
+;  
+;  - Enter with X pointing to the start of the file address data.
+;    Note: X=#52 when OSSAVE is called by the SAVE routine at #CF0A.
+;          X=#C9 when OSSAVE is called by the *SAVE routine at #FABB.
+;  
+;  - Entry: 0,X = LSB File name string address
+;           1,X = MSB File name string address
+;           2,X = LSB Data Reload address
+;           3,X = MSB Data Reload address
+;           4,X = LSB Data Execution address
+;           5,X = MSB Data Execution address
+;           6,X = LSB Data start address
+;           7,X = MSB Data start address
+;           8,X = LSB Data end address + 1
+;           9,X = MSB Data end address + 1
+;  
+;  - Uses:  #CF = Number of bytes in current block
+;           #D0 = LSB current block number
+;           #D1 = MSB current block number
+;           #D2 = Block flag - Bit 7 clear if last block
+;                              Bit 6 clear if block not to be loadable
+;                              Bit 5 set if first block
+;           #D3 = LSB current data start address
+;           #D4 = MSB current data start address
+;           #D5 = LSB current data  end  address
+;           #D6 = MSB current data  end  address
+;           #DC = LSB current data block arithmetic checksum
+;  
+;  - Header format: <*>                     )
+;                   <*>                     )
+;                   <*>                     )
+;                   <*>                     ) Header preamble
+;                   <Filename>              ) Name is 1 to 13 bytes long
+;                   <Status Flag>           ) Bit 7 clear if last block
+;                                           ) Bit 6 clear to skip block
+;                                           ) Bit 5 clear if first block
+;                   <LSB block number>
+;                   <MSB block number>      ) Always zero
+;                   <Bytes in block>
+;                   <MSB run address>
+;                   <LSB run address>
+;                   <MSB block load address>
+;                   <LSB block load address>
+;  
+;  - Data format:   <....data....>          ) 1 to #FF bytes
+;                   <Checksum>              ) LSB sum of all data bytes
+;  
+
+ossave: php			; Save flags
+        sei			; No interrupts !
+        jsr     LF84F		; Transfer file data to w/s starting at #C9
+				; Test filename - set Zero flag if length of filename is zero
+        php			; Save filename test flag
+        lda     #$06		; Code to print 'RECORD TAPE'
+        jsr     LFC40		; Start high tone, print 'RECORD TAPE' and
+				; wait for a keypress before return
+
+	; SEND 2 SECONDS OF HIGH TONE LEADER
+
+        ldx     #$07		; Get code to set 3 LSB's of port B high
+        jsr     LFB7A		; Wait 2 seconds with high tone enabled
+        plp			; Restore result of filename test
+        beq     LFA86		; ..deal with un-named file
+	
+	; COPY DATA START & END ADDRESSES TO W/S
+
+        ldx     #$04		; 
+LFAFA:  lda     $CE, x		; Get data from her
+        sta     $D2, x		; ..and store it there
+        dex			; Decrement counter
+        bne     LFAFA		; ..copy all 4 bytes
+
+	; CLEAR BLOCK NUMBER
+
+        stx     $D0		; Clear LSB block number
+        stx     $D1		; Clear MSB block number
+
+	; DECREMENT (END ADDRESS + 1) TO GET THE CORRECT END ADDRESS
+
+        lda     $D5		; Get LSB end address + 1
+        bne     LFB0B		; ..it's not zero
+        dec     L00D6		; If LSB is zero, decrement MSB too
+LFB0B:  dec     $D5		; Decrement LSB end address + 1
+        clc			; Clear block flag bit to indicate 1st block
+LFB0E:  ror     $D2		; This gets shifted down to bit 5
+
+	; CALCULATE BLOCK SIZE
+
+        sec			; 
+        ldx     #$FF		; Get the default block size
+        lda     $D5		; Get the LSB end address
+        sbc     $D3		; ..and subtract the LSB current address
+        sta     $CF		; This is the number of bytes in the block
+				; ONLY IF it's the last block
+        lda     L00D6		; Get the MSB end address
+        sbc     $D4		; ..and subtract the MSB current address
+        php			; Save Carry flag
+        ror     $D2		; ..and shift into block flag, to be shifted
+				; to bit 6 - if clear block will not load !
+        plp			; Restore Carry flag 
+        bcc     LFB29		; ..it's the last block
+        clc			; 
+        beq     LFB29		; ..it's the last block, so clear bit 7 of
+				; the block flag to indicate this
+        stx     $CF		; Otherwise set block length to default #FF
+        sec			; Indicate that it's NOT the last block
+LFB29:  ror     $D2		; Set/clear last block flag - bit 7 of the 
+				; block flag - as appropriate
+        inx			; Unnecessary !!!
+        jsr     LFB3B		; Send header and data block to tape
+        inc     $D0		; Increment LSB current block number
+        inc     $D4		; Increment MSB current data start address
+        inc     $CC		; Increment MSB current data reload address
+        rol     $D2		; Was the previous block the last block ?
+        bcs     LFB0E		; ..no, go to send the next block, with
+				; Carry set to set bit 5 of block flag
+				; since this block will not be first block
+        plp			; ..yes, restore interrupt status
+        rts			; ..and return
+
+;    Send Header and Data Block to Tape subroutine
+;    ---------------------------------------------
+
+LFB3B:  ldx     #$07		; Code for tone on
+        jsr     LFB7A		; Wait 2 seconds with tone on
+        stx     $DC		; Clear checksum
+
+	; SEND HEADER PREAMBLE OF 4 ASTERISKS
+
+        ldy     #$04		; Number of asterisks in preamble
+LFB44:  lda     #$2A		; Get '*'
+        jsr     LFFD1		; ..and send to tape via OSBPUT
+        dey			; Decrement asterisk counter
+        bne     LFB44		; ..and send all 4 asterisks
+
+	; SEND FILENAME
+
+LFB4C:  lda     (L00C9),y	; Get character of filename
+        jsr     LFFD1		; ..and send to tape via OSBPUT
+        iny			; Point to the next character of filename
+        cmp     #$0D		; Reached <CR> filename terminator ?
+        bne     LFB4C		; ..no, go for the next character
+
+	; SEND REMAINS OF HEADER
+
+        ldy     #$08		; Get number of bytes of header data to send
+LFB58:  lda     $CA,y		; Get header data byte
+        jsr     LFFD1		; ..and send it to tape via OSBPUT
+        dey			; Point to the next byte
+        bne     LFB58		; ..and send all 8 bytes
+        jsr     LFB81		; Wait 0.5 seconds between header and data
+        bit     $D2		; If bit 6 of block flag is clear..
+        bvc     LFB73		; ..then don't send the block !
+
+	; SEND DATA
+
+        dey			;
+LFB69:  iny			; Point to the next byte of data
+        lda     ($D3),y		; ..and fetch it
+        jsr     LFFD1		; Send byte to tape via OSBPUT
+        cpy     $CF		; Sent all the bytes in the block ?
+        bne     LFB69		; ..no, go for the next byte
+LFB73:  lda     $DC		; Get checksum
+        jsr     LFFD1		; ..and send it to tape via OSBPUT
+
+;    Wait 2 Seconds with Tape Tone Off subroutine
+;    --------------------------------------------
+
+        ldx     #$04		; Get code to set PC0 and PC1 low
+
+;    Wait 2 Seconds subroutine
+;    -------------------------
+;  
+;  - Tone to tape set by X register.
+;  - If X=4, tone is off.
+;  - If X=7, tone is on.
+
+LFB7A:  stx     $B002		; Set bits of 8255 PIA port C
+        ldx     #$78		; Set counter to 180 60ths of a second
+        bne     LFB83		; ..and count this many CRT flybacks
+
+;    Wait 0.5 Second subroutine
+;    --------------------------
+
+LFB81:  ldx     #$1E		; Set counter to 30 60ths of a second
+
+;    Wait up to 4.25 Seconds subroutine
+;    ----------------------------------
+;  
+;  - Waits X 60ths of a second.
+
+LFB83:  jsr     LFE66		; Wait for CRT flyback (one 60th of second)
+        dex			; Decrement 60ths of a second counter
+        bne     LFB83		;
+        rts			;
+
+;    Wait 0.1 second subroutine
+;    --------------------------
+
+LFB8A:  ldx     #$06		; Set counter to 6 60ths of a second
+        bne     LFB83		; ..and count this many CRT flybacks
+
+;    Read Header from Tape and Test for Un-Named File subroutine
+;    -----------------------------------------------------------
+;  
+;  
+;  - Waits for 2 seconds of uninterrupted high tone leader, and then loads
+;    the first 4 data bytes into workspace #D3..#D6.
+;  - If these 4 bytes are a valid header preamble '****', returns with Z set
+;    and Y=0.
+;  - If <CTRL> key pressed during leader search, returns with V clear.
+;  - If <SHIFT> key pressed during leader search, leader search is skipped.
+
+LFB8E:  bit     $B001		; Test keyboard
+        bpl     LFB8E		; ..wait until <SHIFT> key not pressed
+        bvc     LFB8E		; ..and until <CTRL> key not pressed
+
+	; WAIT FOR HIGH TONE LEADER
+
+LFB95:  ldy     #$00		; )
+        sta     $C3		; ) Set counter to #1000
+        lda     #$10		; ) Must detect 4096 cycles of high tone
+        sta     $C2		; ) leader
+LFB9D:  bit     $B001		; Test keyboard
+        bpl     LFBB1		; If <SHIFT> pressed, skip leader search
+        bvc     LFBB1		; If <CTRL> pressed, return now
+        jsr     LFCBD		; Count duration of tape pulse
+        bcs     LFB95		; ..low tone detected - reset the leader
+				; counter and start searching again
+        dec     $C3		; Decrement LSB leader counter
+        bne     LFB9D		; 
+        dec     $C2		; Decrement MSB leader counter if overflow
+        bne     LFB9D		; ..keep going until counted down to zero
+LFBB1:  bvs     LFBB4		; If <CTRL> not pressed, go on to load the
+				; header preamble
+        rts			; 
+
+	; LOAD HEADER PREAMBLE
+
+LFBB4:  ldy     #$04		; Set byte counter to load 4 bytes
+        php			; Save state of overflow flag (it's clear)
+        jsr     LFBE4		; Read 4 bytes from tape via OSBGET
+        plp			; Restore state of overflow flag (clear)
+        ldy     #$04		; TEST HEADER PREAMBLE IS IT '****' ?
+        lda     #$2A		; Get '*'
+LFBBF:  cmp     $D3,y		; Is this byte of the preamble an asterisk ?
+        bne     LFBC7		; ..no, return with Carry clear - failure
+        dey			; ..yes, point to next byte of preamble
+        bne     LFBBF		; ..and test all 4 bytes
+LFBC7:  rts			; 
+
+;    Read Name from Tape and Compare Names subroutine
+;    ------------------------------------------------
+;  
+;  - Reads bytes from tape up to filename terminator #D (<CR>), and stores
+;    the filename in workspace starting at #ED.
+;  - Compares the read filename with the filename at (#C9), and returns with
+;    Z set if filenames match.
+;  - Enter with Y=0 at #FBC9.
+
+	; GET FILENAME FROM TAPE
+
+LFBC8:  iny			; Point to the next byte of w/s
+LFBC9:  jsr     LFFD4		; Get byte from tape via OSBGET
+        sta     $ED,y		; ..and copy to w/s
+        cmp     #$0D		; Was it filename terminator <CR> ?
+        bne     LFBC8		; ..no, keep loading
+
+	; COMPARE LOADED FILENAME WITH EXPECTED
+
+        ldy     #$FF		; Set filename character pointer
+LFBD5:  iny			; Point to the next character
+        lda     (L00C9),y	; Get character of source filename
+        cmp     $ED,y		; ..and compare with loaded filename
+        bne     LFBC7		; ..mismatch - return with Zero flag clear
+        cmp     #$0D		; Reached the filename terminator ?
+        bne     LFBD5		; ..no, keep testing
+        rts			; ..yes, return with Zero flag set
+
+;    Get 8 Bytes from Tape into Workspace subroutine
+;    -----------------------------------------------
+;  
+;  - Gets 8 bytes from tape via OSBGET into workspace starting at #DB
+;    backwards to #D4.
+;  - Returns with Y=0 and zero flag set.
+
+LFBE2:  ldy     #$08		; Set byte counter
+LFBE4:  jsr     LFFD4		; Get byte from tape via OSBGET
+        sta     $D3,y		; ..and store in w/s
+        dey			; Decrement byte counter
+        bne     LFBE4		; ..fetch and store all 8 bytes
+        rts			;
+
+;    OSBGET Get Byte from Tape subroutine
+;    --------------------------------------
+;  
+;  - Reads a byte from tape at 300 baud into the accumulator and adds its
+;    value to the arithmetic checksum at #DC.
+;  - Preserves X,Y registers and flags.
+;  - Uses:  #C3 = Temporary storage for Y register
+;           #EC = Temporary storage for X register
+
+osbget: stx     $EC		; Save the X register
+        sty     $C3		; Save the Y register
+        php			; Save interrupt status
+        sei			; No interrupts !
+
+	; GET 0 START BIT
+
+LFBF4:  lda     #$78		; Count 8 half cycles - from #78 to #80
+        sta     $C0		; Set transition counter
+LFBF8:  jsr     LFCBD		; Count duration of tape pulse
+        bcc     LFBF4		; ..duration less than 8, so it's a 1 bit
+        inc     $C0		; Increment transition counter
+        bpl     LFBF8		; ..count 8 half cycles of 1.2 KHz = a 0 bit
+
+	; GET 8 BIT BYTE FROM TAPE INTO #C0 ENTER WITH ?#C0=#80
+
+LFC01:  lda     #$53		; Loop counter - this many passes through the loop takes 3.3mS
+        sta     $C4		; Set loop counter
+        ldx     #$00		; Clear input transition counter
+        ldy     $B002		; Get input pulse
+LFC0A:  jsr     LFCCD		; ..and test state of the input pulse
+        beq     LFC0F		; ..no change   ( takes same time whether )
+LFC0F:  beq     LFC12		; ..no change   (      equal or not       )
+        inx			; Increment input pulse transition counter
+LFC12:  dec     $C4		; Decrement loop counter
+        bne     LFC0A		; ..test for one bit time
+        cpx     #$0C		
+	
+	; Test whether the bit is 0 or 1, a 0 should give 8 transitions, and a
+	; 1 should give 16 transitions, so this tests against the average of 12
+	; giving a large error margin !
+				 
+        ror     $C0		; Rotate bit into the partial byte
+        bcc     LFC01		; ..have done all the 8 bits when the origionally 
+				; set MSB of #C0 shifts down to carry flag.
+        lda     $C0		; Get the resulting complete byte
+        plp			; Restore interrupt status
+        ldy     $C3		; Restore the X register
+        ldx     $EC		; Restore the Y register
+
+;    Add Byte to Checksum subroutine
+;      -------------------------------
+;  
+;      - Adds the contents of the accumulator to the arithmetic checksum at #DC.
+;      - A,X,Y registers preserved.
+
+LFC23:  pha			; Save the byte fetched from tape
+        clc			;
+        adc     $DC		; ..and add it to the checksum
+        sta     $DC		; Update the checksum
+        pla			; Restore the byte fetched from tape
+        rts			; 
+
+;    Set up Block Load Address subroutine
+;    ------------------------------------
+;  
+;  - If bit 7 of start address flag #CD is clear, then the vector #D4, #D5
+;    is copied to #CB, #CC.
+
+LFC2B:  lda     $CD		; Is file's own load address to be used ?
+        bmi     LFC37		; ..no, return
+        lda     $D4		; Get the LSB load address from header w/s
+        sta     L00CB		; ..and set the LSB data dump address
+        lda     $D5		; Get the MSB load address from header w/s
+        sta     $CC		; ..and set the MSB data dump address
+LFC37:  rts			;
+
+;    Print "PLAY TAPE" or "RECORD TAPE" subroutine
+;    ---------------------------------------------
+;  
+;  - Does full test for MON/NOMON, flagged by #EA.
+;  - Entry: Carry clear - Prints 'RECORD TAPE' if bits 1 & 2 of #EA are clear
+;           Carry set   - Prints 'PLAY TAPE' if bit 2 of #EA is clear
+;  - Entry with Acc=5 at #FC40 prints 'REWIND TAPE' if bits 0, 1 & 2 of #EA
+;    are clear.
+;  - Waits for keypress before return.
+
+osfind: bcs     LFC3E		; ..deal with 'PLAY TAPE'
+        lda     #$06		; Get 'RECORD TAPE' NOMON mask
+        bne     LFC40		; ..and go to test
+LFC3E:  lda     #$04		; Get 'PLAY TAPE' NOMON mask
+LFC40:  ldx     #$07		;
+        stx     $B002		; Enable high tone leader to tape output
+        bit     $EA		; Is NOMON set for this function ?
+        bne     LFC76		; ..yes, skip message printing
+        cmp     #$05		; Is it 'REWIND TAPE' ?
+        beq     LFC63		; ..yes
+        bcs     LFC58		; ..no, it's 'RECORD'
+        jsr     LF7D1		; Send the following string to OSWRCH
+	.byte "PLAY"		;
+        bne     LFC6D		; Print 'TAPE'
+LFC58:  jsr     LF7D1		; Send the following string to OSWRCH
+	.byte "RECORD"		;
+        bne     LFC6D		; Print 'TAPE'
+LFC63:  jsr     LF7D1		; Send the following string to OSWRCH
+	.byte "REWIND"		;
+        nop			; string termination
+LFC6D:  jsr     LF7D1		; Send the following string to OSWRCH
+	.byte " TAPE"		; 
+        nop
+
+;    Wait for Keypress and Print <CR><LF> subroutine
+;    -----------------------------------------------
+
+LFC76:  jsr     LFFE3		; Get keypress via OSRDCH
+        jmp     LFFED		; Send <CR><LF> to OSWRCH
+
+;    OSBPUT Put Byte to Tape subroutine
+;    ----------------------------------
+;  
+;  - Sends the byte in the accumulator to tape at 300 baud and adds it to the
+;    checksum at #DC.
+;  - Byte format consists of: 1 '0' start bit
+;                             8     data bits
+;                             1 '1' stop bit
+;  - Preserves A,X,Y registers and flags.
+
+osbput: stx     $EC		; Save the X register
+        sty     $C3		; Save the Y register
+        php			; Save interrupt status
+        sei			; No interrupts !
+        pha			; Save byte to be sent
+        jsr     LFC23		; Add byte to checksum at #DC
+        sta     $C0		; Save byte to be sent in w/s
+        jsr     LFCD8		; Wait for 1 falling edge of 2.4 KHz
+        lda     #$0A		; Number of bits = 1 start + 8 data + 1 stop
+        sta     $C1		; Set bit counter
+        clc			;
+LFC90:  bcc     LFC9C		; Send '0' start bit then 8 data bits
+
+	; SEND 8 CYCLES OF 2.4 KHz TO TAPE - '1' BIT
+
+        ldx     #$07		; Set cycle counter
+        stx     $B002		; Set 3 LSB's of 8255 PIA port C high, thus
+				; enabling the 2.4 KHz clock
+        jsr     LFCDA		; Wait for 7 further falling edges
+        bmi     LFCAF		; ..and go on to deal with the next bit
+
+	; SEND 4 CYCLES OF 1.2 KHz TO TAPE - '1' BIT
+
+LFC9C:  ldy     #$04		; Set cycle counter
+LFC9E:  lda     #$04		; 
+LFCA0:  sta     $B002		; Clear the 2 LSB's of 8255 PIA port C, thus
+				; disabling the 2.4 KHz clock
+        jsr     LFCD8		; Wait for 1 falling edge of the 2.4 KHz
+				; clock - tape output is high
+        inc     $B002		; Set the LSB of 8255 PIA port C, so that the 2.4 KHz 
+				; is still disabled, but the tape output is low
+        jsr     LFCD8		; Wait for 1 falling edge of 2.4 KHz clock
+        dey			; Decrement cycle counter
+        bne     LFC9E		; ..do all 4 cycles
+	
+	; DEAL WITH NEXT BIT
+
+LFCAF:  sec			; Set Carry so 1 is shifted in and hence stop bit is '1'
+        ror     $C0		; Shift the next bit for transmission into carry
+        dec     $C1		; Decrement bit counter
+        bne     LFC90		; ..send this bit, unless sent all the bits
+        ldy     $C3		; Restore the Y register
+        ldx     $EC		; Restore the X register
+LFCBA:  pla			; Restore accumulator
+        plp			; Restore interrupt status
+        rts
+
+;    Count Duration of Tape Pulse subroutine
+;    ---------------------------------------
+;  
+;  - Returns with Zero flag set if the total number of loops was 8.
+;  - Returns with Carry set if total number of loops was > 7.
+;  - Returns with Carry clear if total number of loops was < 8.
+;  - Returns with X=count, but if X=0 then no change was detected in 256
+;    loops.
+;  - Stores the on entry state of ?#B002 at #C5, returns with Y=new state.
+
+LFCBD:  ldx     #$00		; Clear loop counter
+        ldy     $B002		; Get origional state of input pulse
+LFCC2:  inx			; Increment loop counter
+        beq     LFCCC		; ..failed to detect change in 256 loops
+        jsr     LFCCD		; Has input pulse level changed ?
+        beq     LFCC2		; ..no, increment counter & test again
+        cpx     #$08		; Compare loop counter with 8 before return
+LFCCC:  rts			;
+
+;    Test state of #B002 tape input pulse subroutine
+;    -----------------------------------------------
+;  
+;  - Entry: Y = ?#B002
+;  - Exit:  Y = new ?#B002
+;           ?#C5 = old #B002
+;  - Returns with Z set if no change.
+
+LFCCD:  sty     $C5		; Save origional state of input pulse
+        lda     $B002		; Get current state of input pulse
+        tay			; ..and keep a copy of the new state
+        eor     $C5		; Has it changed ?
+        and     #$20		; Mask off all but the input bit
+        rts			; return with Z set if no change in lev
+
+;    Wait for 1 Falling Edge of the 2.4KHz Clock subroutine
+;    ------------------------------------------------------
+
+LFCD8:  ldx     #$00		; Count 1 falling edge
+
+;    Wait for 1 to 127 Falling Edges of the 2.4KHz Clock subroutine
+;    --------------------------------------------------------------
+;  
+;  - Waits for X+1 falling edges where 0<=X<=#80.
+   
+LFCDA:  lda     #$10		; Get mask for bit 4 of #B002 input port
+LFCDC:  bit     $B002		; Is clock input low ?
+        beq     LFCDC		; ..yes, wait for it to go high
+LFCE1:  bit     $B002		; Is clock input high ?
+        bne     LFCE1		; ..yes, wait for it to go low
+        dex			; Decrement falling edge counter
+        bpl     LFCDC		; ..and count the required number of edges
+        rts
+
+;    Send ASCII Character to Screen subroutine
+;    -----------------------------------------
+;  
+;  - Prints non-control codes (#20 to #FF) at the current cursor position on
+;    the screen.
+;  - Executes the following control codes:
+;  
+;    <NUL><ACK><BEL><BS><HT><LF><VT><FF><CR><SO><SI><NAK><ESC>
+;      0    6    7   8   9   #A  #B  #C  #D  #E  #F  #15  #1B
+
+	; TEST FOR CONTROL CODES
+
+LFCEA:  cmp     #$06		; Is it <ACK> ?
+        beq     LFD0B		; ..yes, reset the 6847 VDG to alphanumeric
+				; mode and clear the NAK flag
+        cmp     #$15		; Is it <NAK> ?
+        beq     LFD11		; ..yes, set the NAK flag
+        ldy     $E0		; Get cursor postion - is the NAK flag bit 7 set ?
+        bmi     LFD19		; ..yes, printing not allowed - return
+        cmp     #$1B		; Is it <ESC> ?
+        beq     LFD0B		; ..yes, reset VDG to alphanumeric mode and clear NAK
+        cmp     #$07		; Is it <BEL> ?
+        beq     LFD1A		; ..yes, sound a bleep
+        jsr     LFD44		; Invert char at current cursor position
+        ldx     #$0A		; Point to the control code table at #FED5
+        jsr     LFEC5		; Test character for executable control code
+        bne     LFD29		; ..it's not an executable control code
+				; so print it if >#1F, otherwise return
+        jmp     LFEB7		; ..executable control code - get the code's
+				; execution address and jump to it
+
+;    Handle <ESC> subroutine
+;    -----------------------
+;  
+;  - Resets the 6847 VDG to alphanumeric mode.
+;  - Clears the NAK flag (bit 7 of #E0).
+
+
+LFD0B:  clc			; ..to clear NAK flag
+        ldx     #$00		;
+        stx     $B000		; Reset the VDG to alphanumeric mode
+
+;    Handle <ACK> or <NAK> subroutine
+;    --------------------------------
+;  
+;  - Entry: Carry clear to perform <NAK>
+;           Carry  set  to perform <ACK>
+;  - Returns with Accumulator and Y registers preserved, and with X=2.
+;  
+LFD11:  ldx     #$02		; 
+LFD13:  php			; Save state of Carry flag
+        asl     $DE, x		; Get rid of old NAK flag (bit 7)
+        plp			; Restore state of Carry flag
+        ror     $DE, x		; ..and shift in the new NAK flag value
+LFD19:  rts			;
+
+;    Handle <BEL> subroutine
+;    -----------------------
+;  
+;  - Returns with X=0, Y=128, and the sign flag set.
+
+LFD1A:  lda     #$05		; Get control code to set 8255 PIA port bits
+				; C0-C3 to input; A, B, and C4-C7 to output
+        tay			; Set up outer loop counter
+LFD1D:  sta     $B003		; Set port C0-C3 to input, so speaker O/P=1
+LFD20:  dex			; )
+        bne     LFD20		; ) ..a short delay
+        eor     #$01		; Toggle C0-C3 between input and output
+        iny			; Increment outer loop counter
+        bpl     LFD1D		; ..continue for 122 outer loop cycles
+        rts			; 
+
+;    Print an ASCII Character on the Screen subroutine
+;    -------------------------------------------------
+;  
+;  - Control characters (codes less than #20) are ignored.
+;  - Increments current cursor position, incrementing the print line and/or
+;    scrolling the screen as necessary.
+;  - Entry: Accumulator contains ASCII code of character to be printed
+;           Y register contains current cursor position ?#E0.
+;  - Accumulator preserved.
+
+LFD29:  cmp     #$20		; Is the character a control code ?
+        bcc     LFD44		; ..yes, so don't print it
+        adc     #$1F		; )
+        bmi     LFD33		; )
+        eor     #$60		; ) Convert to screen character
+LFD33:  jsr     LFE6B		; Wait for the next or current flyback
+        sta     ($DE),y		; Store character at current print position
+LFD38:  iny			; Increment cursor position
+        cpy     #$20		; Reached end of the current print line ?
+        bcc     LFD42		; ..no, update cursor position and invert
+				; the cursor at this position
+        jsr     LFDEC		; ..yes, do <CR><LF> first
+
+;    Reset Cursor to Start of Current Line Without Deletion subroutine
+;    -----------------------------------------------------------------
+
+LFD40:  ldy     #$00		; Point to start of current line
+LFD42:  sty     $E0		; Update current cursor position register
+
+;    Invert Character at Current Cursor Position subroutine
+;    ------------------------------------------------------
+;  
+;  - EORs the character at the current cursor position with the cursor mask
+;    ?#E1.
+;  - A, X, Y registers preserved.
+
+LFD44:  pha			; Save character in accumulator
+        jsr     LFE6B		; Wait for the next or current flyback
+        lda     ($DE),y		; Get character at current print position
+        eor     $E1		; Mask it
+        sta     ($DE),y		; ..and return it to the screen
+        pla			; Restore character to accumulator
+        rts			;
+
+;    Handle <DEL> subroutine
+;    -----------------------
+
+LFD50:  jsr     LFE35		; Move cursor back one position if possible, otherwise 
+				; invert character at current cursor position and return
+        lda     #$20		; Get <SPC>
+        jsr     LFE6B		; Wait for the next or current flyback
+        sta     ($DE),y		; Blank character at previous cursor pos'n
+        bpl     LFD42		; Update cursor position and invert cursor
+
+;    Handle <BS> subroutine
+;    ----------------------
+;  
+;  - Enter with Y containing the current cursor position ?#E1.
+
+LFD5C:  jsr     LFE35		; Move cursor back one position if possible, otherwise
+				; invert character at current cursor position and return
+        jmp     LFD42		; Update cursor position and invert cursor
+
+;    Handle <LF> subroutine
+;    ----------------------
+
+LFD62:  jsr     LFDEC		; Do <LF>, scrolling if necessary
+LFD65:  ldy     $E0		; Get origional cursor position, which has not changed
+				; although the line start address may have
+        bpl     LFD42		; Update cursor position and invert cursor
+
+;    Handle <FF> subroutine
+;    ----------------------
+;  
+;  - Resets the 8647 VDG to the alphanumeric mode and clears the screen.
+;  - Sets the cursor to the top left position.
+
+LFD69:  ldy     #$80		; 
+        sty     $E1		; Set the cursor mask to default
+        ldy     #$00		; Clear screen memory index
+        sty     $B000		; Set 6847 VDG to alphanumeric mode
+        lda     #$20		; Get <SPC>
+LFD74:  sta     $8000,y		; Clear byte of upper page of screen
+        sta     $8100,y		; Clear byte of lower page of screen
+        iny			; Point to the next byte
+        bne     LFD74		; ..and clear both complete pages
+
+;    Handle <RS> subroutine
+;    ----------------------
+;  
+;  - Sets cursor to top left position.
+
+LFD7D:  lda     #$80		; 
+        ldy     #$00		; Clear current cursor position
+        sta     $DF		; ) Set line start address to the top of 
+        sty     $DE		; ) the screen at #8000
+        beq     LFD42		; Update cursor position and invert cursor
+
+;    Handle <VT> subroutine
+;    ----------------------
+;  
+;  - Enter with Y containing the current cursor position ?#E1.
+
+LFD87:  jsr     LFE3A		; Move the cursor position up a line
+        jmp     LFD42		; Update cursor position and invert cursor
+
+;    Handle <SO> subroutine
+;    ----------------------
+;  
+;  - Turns page mode on, and sets the number of lines left to 16.
+
+LFD8D:  clc			; 
+        lda     #$10		; Get number of lines in page = 16
+        sta     $E6		; Indicate page mode by setting count
+
+;    Handle <SI> subroutine
+;    ----------------------
+;  
+;  - Turns page mode off.
+;  - Enter with Carry set.
+
+LFD92:  ldx     #$08		; 
+        jsr     LFD13		; Set or clear bit 7 of #E6 according to carry
+        jmp     LFD44		; Invert character at current position
+
+;    Handle <LOCK> subroutine
+;    ------------------------
+;  
+;  - Toggles the lock flag - #E7 = #60 Lock on
+;                            #E7 =   0 Lock off
+;  - Enter with Carry set.
+
+LFD9A:  lda     $E7		; Get the lock flag
+        eor     #$60		; ..toggle it
+        sta     $E7		; ..and restore it
+        bcs     LFDAB		; Go fetch another keypress
+
+;    Handle Cursor Keys from Keyboard subroutine
+;    -------------------------------------------
+;  
+;  - Sends the cursor control code to screen and then fetches another key.
+
+LFDA2:  and     #$05		; 
+        rol     $B001		; 
+        rol     a		; 
+        jsr     LFCEA		; Send control character to screen
+LFDAB:  jmp     LFE9A		; ..and fetch another key
+ 
+;    Handle <COPY> Key subroutine
+;    ----------------------------
+
+LFDAE:  ldy     $E0		; Get the current cursor position
+        jsr     LFE6B		; Wait for the next or current flyback
+        lda     ($DE),y		; Get character at current cursor position
+        eor     $E1		; Get rid of the cursor mask
+        bmi     LFDBB		; )
+        eor     #$60		; )
+LFDBB:  sbc     #$20		; ) Convert screen character to ASCII
+        jmp     LFDE9		; Restore A,X,Y regs & status & return
+
+;    Handle <DEL> key #F (ASCII #7F) subroutine
+;    ------------------------------------------
+
+LFDC0:  lda     #$5F		; 
+
+;    Handle '[\]^_' keys #3B-#3F (ASCII #5B-#5F) subroutine
+;    ------------------------------------------------------
+;  
+;  - Enter with accumulator = key number = #20 - ASCII value.
+
+LFDC2:  eor     #$20		;
+        bne     LFDE9		;
+
+;    Handle 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' keys #21-#3A (ASCII #41-#5A) sub
+;    --------------------------------------------------------------------
+;  
+;  - Enter with accumulator = key number = #20 - ASCII value.
+
+LFDC6:  eor     $E7		; Invert if lock flag set to #60
+
+;    Handle '@' key #20 (ASCII #40) subroutine
+;    -----------------------------------------
+
+LFDC8:  bit     $B001		; Is the shift key being pressed ?
+        bmi     LFDCF		; ..no, don't invert the character
+        eor     #$60		; ..yes, invert the character
+LFDCF:  jmp     LFDDF		; Convert to ASCII & test for <CTRL> key
+
+;    Handle '!"#$' keys 1-4 (ASCII #21-#24) subroutine
+;    -------------------------------------------------
+;  
+;  - Enter with accumulator = key number = #20 - ASCII value.
+
+LFDD2:  adc     #$39		; 
+        bcc     LFDC8		; 
+
+;    Handle '<=>?>' keys #1C-#1F (ASCII #3C-#3F) subroutine
+;    ------------------------------------------------------
+;  
+;  - Enter with accumulator = key number = #20 - ASCII value.
+
+LFDD6:  eor     #$10		; 
+
+;    Handle '123456789:;' keys #11-#1B (ASCII #31-#3B) subroutine
+;    ------------------------------------------------------------
+;  
+;  - Enter with accumulator = key number = #20 - ASCII value.
+
+LFDD8:  bit     $B001		; 
+        bmi     LFDDF		; 
+        eor     #$10		; 
+
+;    Handle <SPACE> key 0 (ASCII #10) subroutine
+;    -------------------------------------------
+
+	; CONVERT TO ASCII & TEST FOR <CTRL> KEY
+
+LFDDF:  clc			; 
+        adc     #$20		; Convert to ASCII
+LFDE2:  bit     $B001		; Is <CTRL> key pressed ?
+        bvs     LFDE9		; ..no, restore X, Y & flags & return
+        and     #$1F		; ..yes, mask to range 0-#1F
+LFDE9:  jmp     LFE60		; Restore X, Y & flags & return
+
+;    Handle <LF>, Scrolling if Necessary subroutine
+;    ----------------------------------------------
+;  
+;  - If in page mode, decrements page counter, and at the end of the page
+;    waits for a keypress before scrolling.
+
+LFDEC:  lda     $DE		; Get LSB start of line
+        ldy     $DF		; Get MSB start of line
+        cpy     #$81		; In lower screen page ?
+        bcc     LFE2C		; ..no, do <LF> - scrolling not required
+        cmp     #$E0		; In last page..but is it the last line ?
+        bcc     LFE2C		; ..no, do <LF> - scrolling not required
+
+	; SCROLLING REQUIRED - CHECK IN PAGE MODE
+
+        ldy     $E6		; Get page mode flag
+        bmi     LFE08		; ..not in page mode - scroll the screen
+        dey			; 
+        bne     LFE06		; 
+	
+	;  IN PAGE MODE - GET KEYPRESS
+
+LFDFF:  jsr     LFE71		; Scan keyboard
+        bcs     LFDFF		; ..keep scanning until key pressed
+        ldy     #$10		;
+LFE06:  sty     $E6		; Reset page counter to 16 lines
+
+;    Scroll the Screen subroutine
+;    ----------------------------
+
+LFE08:  ldy     #$20		; Shift screen up 32 characters = 1 line
+
+;    Scroll Y lines of the Screen subroutine
+;    ---------------------------------------
+;  
+;  - For every #20 in Y a top line of the screen is not scrolled.
+
+        jsr     LFE66		; Wait for the start of the next flyback
+LFE0D:  lda     $8000,y		; Get byte from upper text page
+        sta     $7FE0,y		; ..and store it a line higher
+        iny			; Point to next screen byte
+        bne     LFE0D		; ..and shift up all the upper text page
+        jsr     LFE6B		; Wait for the next or current flyback
+LFE19:  lda     $8100,y		; Get byte from lower text page
+        sta     $80E0,y		; ..and store it a line higher
+        iny			; Point to next screen byte
+        bne     LFE19		; ..and shift up all the lower text page
+
+;    Delete Current Line subroutine
+;    ------------------------------
+;  
+;  - CLears the 32 character line based at (#DE) to black (<SPACE>).
+
+        ldy     #$1F		; Set character pointer to end of line
+        lda     #$20		; Get <SPACE>
+LFE26:  sta     ($DE),y		; Clear the character to black
+        dey			; Point to the next character
+        bpl     LFE26		; ..and clear the entire print line
+        rts			;
+
+;    Add One Line to the Cursor Position subroutine
+;    ----------------------------------------------
+;  
+;  - Enter with the accumulator containing the LSB current cursor 
+;    Delete Current Line subroutine
+;    ------------------------------
+;  
+;  - CLears the 32 character line based at (#DE) to black (<SPACE>).
+;  address
+;    #DE and Carry clear.
+
+LFE2C:  adc     #$20		; Add 32 characters = 1 print line
+        sta     $DE		; ..and update LSB cursor  Add 32 characters = 1 print lineaddress
+        bne     LFE34		;
+        inc     $DF		; Increment MSB cursor address if overflow
+LFE34:  rts			;
+
+;    Move the Cursor Back One Position subroutine
+;    --------------------------------------------
+;  
+;  - Decrements the current cursor position, dealing with line underflow.
+;  - If the cursor is at the top left of the screen, the character at this
+;    position is inverted before premature return.
+;  - Used by the <BS> and <DEL> subroutines.
+;  - Enter with Y register holding the current cursor position ?#31.
+
+LFE35:  dey			; Point to the previous cursor position
+        bpl     LFE51		; ..still on current line, return
+
+	; DEAL WITH LINE UNDERFLOW
+
+        ldy     #$1F		; Set cursor position to last char on line
+LFE3A:  lda     $DE		; Get LSB current line address
+        bne     LFE49		; ..not at top of screen, so can move line
+				; address up a line
+        ldx     $DF		; Get MSB current line address
+        cpx     #$80		; Is it upper page ?
+        bne     LFE49		; ..no, move line address up a line
+
+	; ALREADY AT TOP OF SCREEN - RETURN
+
+        pla			; )
+        pla			; ) Remove return address from stack
+        jmp     LFD65		; Invert char at current cursor position
+	
+	; MOVE CURRENT START ADDRESS UP A LINE
+
+LFE49:  sbc     #$20		; Move LSB current line back 32 characters
+        sta     $DE		; ..and update LSB line addres
+        bcs     LFE51		;
+        dec     $DF		; Decrement MSB line address if overflow
+LFE51:  rts			;
+
+;    Send Character to VIA and Screen subroutine
+;    -------------------------------------------
+;  
+;  - Preserves all registers.
+
+oswrch: jsr     LFEFB		; Send character in accumulator to the VIA
+
+;    Send Character to Screen subroutine
+;    -----------------------------------
+;  
+;  - Preserves all registers.
+
+ 	php			; Save flags
+        pha			; Save accumulator
+        cld			;
+        sty     $E5		; Save Y register
+        stx     $E4		; Save X register
+        jsr     LFCEA		; Send character in accumulator to screen
+        pla			; Restore accumulator
+LFE60:  ldx     $E4		; Restore X register
+        ldy     $E5		; Restore Y register
+        plp			; Restore flags
+        rts			;
+
+;    Wait Until Next CRT Field Flyback subroutine
+;    --------------------------------------------
+;  
+;  Preserves Accumulator, X, Y registers
+
+LFE66:  bit     $B002		; In flyback ?
+        bpl     LFE66		; ..yes, wait until finished
+
+;    Wait Until Next or Current CRT Field Flyback subroutine
+;    -------------------------------------------------------
+
+LFE6B:  bit     $B002		; In flyback ?
+        bmi     LFE6B		; ..no, wait for flyback
+        rts			;
+
+;    Scan Key Matrix subroutine
+;    --------------------------
+;  
+;  - Does not examine the <CTRL>, <SHIFT>, or <REPT> keys.
+;  - Enter with the 4 LSBs of #B000 clear.
+;  - Returns with ASCII value minus #20 in Y register and Carry clear
+;    if successful.
+;  - Destroys A,X,Y registers.
+;  - Returns with Z flag set.
+
+LFE71:  ldy     #$3B		; Set key counter
+        clc			;
+        lda     #$20		; Initialise bit mask to examine bit 5
+LFE76:  ldx     #$0A		; Set row counter
+LFE78:  bit     $B001		; Is the key in this row & column pressed ?
+        beq     LFE85		; ..yes - success
+        inc     $B000		; ..no, point to the next row
+        dey			; Decrement key counter
+        dex			; Decrement row counter
+        bne     LFE78		; ..and test this row in the same column
+        lsr     a		; Tested all the rows - point to next column
+				; If failed, acc shifts to 0, Carry=1 - thus
+				; returns with Carry set if failed
+LFE85:  php			; Save flags - Z set if successful
+        pha			; Save column bit mask
+        lda     $B000		; Get contents of VDG/row counter port
+        and     #$F0		; Leave VDG bits unaltered, but clear row
+				; counter so that <ESC> can be tested easily
+        sta     $B000		; Update VDG/row counter port
+        pla			; Restore column bit mask
+        plp			; Restore flags
+        bne     LFE76		; ..keep testing
+        rts			;
+
+;    OSRDCH Get Key subroutine
+;    -------------------------
+;  
+;  - Waits for a key to be pressed and returns with its ASCII value in the
+;    accumulator.
+;  - Executes control characters before return.
+;  - If <LOCK> or cursor control keys is pressed, the code is executed
+;    and another keypress fetched before return.
+;  - Preserves X,Y registers and flags.
+
+osrdch: php			; Save flags
+        cld			;
+        stx     $E4		; Save X register
+        sty     $E5		; Save Y register
+
+	; WAIT FOR KEYBOARD TO BE RELEASED
+
+LFE9A:  bit     $B002		; Is <REPT> key pressed ?
+        bvc     LFEA4		; ..yes, no need to wait for keyboard to be released
+        jsr     LFE71		; Scan keyboard
+        bcc     LFE9A		; ..wait for key to be released
+
+	; GET KEYPRESS
+
+LFEA4:  jsr     LFB8A		; Wait 0.1 second for debounce
+LFEA7:  jsr     LFE71		; Scan keyboard
+        bcs     LFEA7		; ..keep scanning until key pressed
+        jsr     LFE71		; Scan keyboard again - still pressed ?
+        bcs     LFEA7		; ..no, noise ? - try again
+        tya			; Acc = ASCII value of key - #20
+        ldx     #$17		; Pointer to control code table at #FEE2
+
+	; GET EXECUTION ADDRESS AND JUMP TO IT
+
+        jsr     LFEC5		; Test for control code or otherwise
+LFEB7:  lda     LFEE3, x	; Get LSB execution  Test for control code or otherwiseaddress
+        sta     L00E2		; ..into w/s
+        lda     #$FD		; Get MSB execution  ..into w/saddress
+        sta     $E3		; ..into w/s
+        tya			; Acc = ASCII value of key - #20
+        jmp     (L00E2)		; Jump to deal with char or control code
+
+;    Decode Control Character subroutine
+;    -----------------------------------
+;  
+;  - Enter at #FEC5.
+;  - Enter with X pointing to control code table:
+;      X=#A  for the WRCHAR table at #FED5
+;      X=#17 for the RDCHAR table at #FEE2.
+;  - Returns with Carry set, and X pointing to matched code or last code.
+;  - Returns with Z flag set if control code matched.
+
+LFEC4:  dex			; Point to next control code in table
+LFEC5:  cmp     LFECB, x	; Is it this control code ?
+        bcc     LFEC4		; ..no, table value too large - try the next code
+        rts			;
+
+;    WRCHAR Control Code Data Lookup Table
+;    -------------------------------------
+
+LFECB:  .byte $00, $08, $09, $0A, $0B, $0C, $0D, $0E
+	.byte $0F, $1E, $7F
+
+;    RDCHAR Control Code Data Lookup Table
+;    -------------------------------------
+
+        .byte $00, $01, $05, $06, $08, $0E, $0F, $10
+	.byte $11, $1C, $20, $21, $3B
+
+;    WRCHAR Control Code Address Lookup Table
+;    Note that this is just the LSB. The MSB is assumed to be $FD
+;    ----------------------------------------
+
+LFEE3:  .byte <LFD44		; invert char at cursor position
+        .byte <LFD5C		; handle <BS>
+	.byte <LFD38		; handle <HT>
+	.byte <LFD62		; handle <LF>
+	.byte <LFD87		; handle <VT>
+	.byte <LFD69		; handle <FF>
+	.byte <LFD40		; handle <CR>
+	.byte <LFD8D		; handle <SO>
+	.byte <LFD92		; handle <SI>
+	.byte <LFD7D		; handle <RS>
+	.byte <LFD50		; handle <DEL>
+
+;    RDCHAR Control Code Address Lookup Table
+;    Note that this is just the LSB. The MSB is assumed to be $FD
+;    ----------------------------------------
+
+        .byte <LFDDF		; 
+	.byte <LFDD2		; 
+	.byte <LFD9A		; handle LOCK
+	.byte <LFDA2		; handle cursor keys
+	.byte <LFDE2		; 
+	.byte <LFDAE		; handle COPY
+	.byte <LFDC0		; handle DEL
+	.byte <LFDDF		; 
+	.byte <LFDD8		; 
+	.byte <LFDD6		; 
+	.byte <LFDC8		; 
+	.byte <LFDC6		; 
+	.byte <LFDC2		; 
+
+;    Send Contents of Accumulator to VIA subroutine
+;    ----------------------------------------------
+;  
+;  - Waits for the busy line VIA Port A bit 7 to go low, then dumps 7 bit
+;    data to the 7 LSBs of Port A, and then strobes CA2 low for ~20uS.
+;  - Enter with CA2 output set high.
+;  - Preserves A,X,Y registers.
+
+LFEFB:  pha			; Save a copy of data to be transmitted
+        cmp     #$02		; Is it <STX> ?
+        beq     LFF27		; ..yes, initialise the printer
+        cmp     #$03		; Is it <EXT> ?
+        beq     LFF38		; ..yes, disable the printer
+        cmp     $FE		; Is char allowed to be sent to printer ?
+        beq     LFF36		;  ..no, return
+        lda     $B80C		; Get the VIAs peripheral control register
+        and     #$0E		; Is it set up, ie <STX>ed ?
+        beq     LFF36		; ..no, can't send character - return
+        pla			; Restore character to be sent
+
+	; WAIT FOR PRINTER NOT BUSY
+
+LFF10:  bit     $B801		; Busy ?
+        bmi     LFF10		; ..yes, wait for printer to be not busy
+        sta     $B801		; Dump character to printer output port A
+        pha			; Save a copy of data that was transmitted
+        lda     $B80C		; Get 6522 VIA peripheral control register
+        and     #$F0		; Don't affect CB1, CB2, Port B conditions
+        ora     #$0C		; ..but set CA2 low - NSTROBE
+        sta     $B80C		; Update the VIA peripheral control register
+        ora     #$02		; Don't affect CB1, CB2 conditions, but set CA2 high
+        bne     LFF33		; Update PCR, restore character and return
+
+	; DO <STX>
+
+LFF27:  lda     #$7F		; 
+        sta     $B803		; Set 7 LSBs of 6522 VIA Port A as the data
+				; outputs and the MSB as the busy input 
+        lda     $B80C		; Get 6522 VIA peripheral control register
+        and     #$F0		; Don't affect CB1, CB2, Port B conditions
+        ora     #$0E		; ..but set CA2 output high
+LFF33:  sta     $B80C		; Update the VIA peripheral control register
+LFF36:  pla			; Restore the data that was transmitted
+        rts			;	 
+
+;    Do <EXT> subroutine
+;    -------------------
+
+LFF38:  lda     $B80C		; Get the VIAs peripheral control register
+        and     #$F0		; Don't affect CB1, CB2, Port B conditions
+        bcs     LFF33		; Update PCR, restore character and return
+
+;    RESET Routine
+;    -------------
+;  
+;  - Indirected by the vector #FFFC on power-up or BREAK.
+
+	; RESET PAGE 2 VECTORS TO DEFAULT
+
+reset:  ldx     #$17		; Set vector table pointer
+LFF41:  lda     LFF9A, x	; Get byte from vector data table
+        sta     IRQVEC, x	; ..and store in the vector table in RAM
+        dex			; Point to next byte
+        bpl     LFF41		; ..and set all 12 vectors = 24 bytes
+        txs			; Initialise stack pointer to #FF
+        txa			; 
+        inx			; Now X=0
+        stx     $EA		; Clear NOMON flag
+        stx     $E1		; Clear cursor position
+        stx     $E7		; Clear lock off
+
+	; SET ALL THE ARRAY POINTERS TO #FFFF
+
+        ldx     #$33		; Set array pointer
+LFF55:  sta     $02EB, x	; Set array pointer LSB/MSB to #FF
+        dex			; Point to next byte
+        bpl     LFF55		; ..and set all 26 array addresses
+        lda     #$0A		; Get <LF>
+        sta     $FE		; Set character not to be sent to printer
+
+	; SET UP VDG FOR ALPHANUMERIC MODE
+
+        lda     #$8A		;
+        sta     $B003		;
+        lda     #$07		;
+        sta     $B002		;
+
+	; PRINT INITIALISATION MESSAGE
+
+        jsr     LF7D1		; Send the following string to WRCHAR
+
+	.byte 6, 12, 15, "ACORN ATOM", 10, 10, 13
+
+	; SET DEFAULT TEXT SPACE & ENABLE INTERRUPTS
+
+	lda	#$82		; Default text space is #8200
+        sta     $12		; ..so set it
+        cli			; ..before enabling interrupts
+
+	; TEST TEXT SPACE AT #2900 FOR RAM FITTED
+
+        lda     #$55		; Get 1st test code
+        sta     $2901		; ..and write to lower text space
+        cmp     $2901		; Can it be read back ?
+        bne     LFF97		; ..no, stick to default text space
+        asl     a		; Get 2nd test code = #AA
+        sta     $2901		; ..and write to lower text space
+        cmp     $2901		; Can it be read back ?
+        bne     LFF97		; ..no, stick to default text space
+        jmp     LC2B2		; ..yes, initialise #2900 text space and
+				; Carry onto to the Direct Command Handler
+
+LFF97:  jmp     LC2B6		; Initialise #8200 text space and carry on
+				; to the Direct Command Handler
+
+
+;    Vector Data Table
+;    -----------------
+
+LFF9A:  
+	.word $A000		;
+	.word oscli
+	.word oswrch
+	.word osrdch
+	.word osload
+	.word ossave
+	.word LC2AC
+	.word LC2AC
+	.word osbget
+	.word osbput
+	.word osfind
+	.word LC278
+
+;    IRQ/BRK Handler
+;    ---------------
+;  
+;  - If IRQ, pushes the accumulator onto the stack before jumping to IRQVEC
+;    at (#204).
+;  - If BRK, jumps to BRKVEC at (#202).
+
+irq_brk:
+        sta     $FF		;
+        pla			;
+        pha			;
+        and     #$10		;
+        bne     LFFC0		;
+        lda     $FF		;
+        pha			;
+        jmp     (IRQVEC)	;
+
+;    Execute BRK
+;    -----------
+
+LFFC0:  lda     $FF		;
+        plp			;
+        php			;
+        jmp     (BRKVEC)	;
+
+;    Execute NMI
+;    -----------
+;  
+;  - Pushes accumulator onto stack before jumping to NMIVEC at (#200).
+
+nmi:	pha			;
+        jmp     (NMIVEC)		;
+
+;    Operating System Jump Table
+;    ---------------------------
+
+	.org	$FFCB
+	.segment "OSTABLE"
+
+        jmp     (SHTVEC)	; OSSHUT - normally #C278
+        jmp     (FNDVEC)	; OSFIND - normally #FC38
+LFFD1:  jmp     (BPTVEC)	; OSBPUT - normally #FC7C
+LFFD4:  jmp     (BGTVEC)	; OSBGET - normally #FBEE
+        jmp     (STRVEC)	; OSSTAR - normally #C2AC
+        jmp     (RDRVEC)	; OSRDAR - normally #C2AC
+        jmp     (SAVVEC)	; OSSAVE - normally #FAE5
+        jmp     (LODVEC)	; OSLOAD - normally #F96E
+LFFE3:  jmp     (RDCVEC)	; OSRDCH - normally #FE94
+        jsr     LFFE3		; OSECHO - normally #FE94 then FE52
+        cmp     #$0D		; OSASCI - #D causes <CR><LF>
+        bne     LFFF4		; 
+LFFED:  lda     #$0A		; OSCRLF - causes <CR><LF>
+        jsr     LFFF4		;
+        lda     #$0D		;
+LFFF4:  jmp     (WRCVEC)	; OSWRCH - normally #FE52
+        jmp     (COMVEC)	; OSCLI  - normally #F8EF
+		
+        .word	nmi		; NMI
+        .word   reset		; RESET
+        .word   irq_brk		; IRQ/BRK
