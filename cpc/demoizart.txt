@@ -1,0 +1,565 @@
+08BA:   subroutine motor on?
+08BF:   disc motor on (OUT FA7E,1)
+---
+
+DATA:
+    0A15:   (CODE!) number of sectors to read
+    0954:   (CODE!) write sector data target address
+    0989:   current Disc Sector ID (e.g. C4)
+    098A:   current Disc Track Nr (e.g. 0A)
+    098B:   Disc Drive / Head select
+    098D:   FDC ST0 result
+    098E:   FDC ST1 result
+    098F:   FDC ST2 result
+
+... SEEMS TO BE "LOAD AND START CODE FROM DISC"
+083D:   DI
+083D:   LD (08B9),A
+0841:   CALL 08BA       motor on
+0844:   LD HL,09DA
+0847:   CALL 09E5       sound control
+084A:   CALL 09CE       wait vsync
+084D:   LD BC,BC01      
+0850:   OUT (C),C       select CRTC register 1
+0852:   INC B           BC: BD01
+0853:   OUT (C),0       HDISP=0
+0855:   LD BC,7F00      GATE ARRAY
+0858:   OUT (C),C       Select Pen 0
+085A:   LD A,54
+085C:   OUT (C),A       Set Color on Pen 0
+085E:   LD C,10
+0860:   OUT (C),C       Set Border Color
+0862:   OUT (C),A
+0864:   LD HL,C9FB
+        
+0867:   LD (0038),HL    write "EI + RET" to 0038
+086A:   EI
+086B:   LD B,28
+086D:   HALT x 6
+...
+0873:   DJNZ 086D       waits for about a second
+0875:   DI
+0876:   LD HL,C000      clear C000..FFFF
+0879:   LD DE,C001
+087C:   LD BC,3FFF
+087F:   LD (HL),L
+0880:   LDIR
+0882:   LD A,08         number of sectors to read
+0884:   LD (0A15),A 
+0887:   LD A,0A         first track (0A)
+0889:   LD (098A),A
+088C:   LD A,C4         first sector ID C4
+088E:   LD (0989),A
+0891:   LD HL,7000      start address
+0894:   LD (0954),HL
+0897:   LD HL,7FEF      13x00 01 C3 00 78
+089A:   LD DE,0000
+089D:   LD BC,0011
+08A0:   LDIR
+08A2:   CALL 0A04
+08A5:   LD HL,0000      17 bytes from 0000 -> 7FEF
+08A8:   LD DE,7FEF      (those had been overwritten by the disc read)
+08AB:   LD BC,0011
+08AE:   LDIR
+08B0:   LD HL,7F00      start address of loaded code
+08B3:   LD (7FFE),HL
+08B6:   JP 7FFD         jump to loaded code    
+
+---
+WAIT FOR FDC READY:
+
+08C9:   LD BC,FB7E  
+08CC:   IN A,(C)        read FDC status
+08CE:   JP P,08C9
+08D1:   RET
+---
+WAIT SEEK END:
+
+08D2:   LD A,08         FDC: Sense Interrupt Status
+08D4:   CALL 08EF       
+08D7:   CALL 08FA       first result: st0 (bit 5 is seek end)
+08DA:   LD (098D),A     
+08DD:   CALL 08FA       second result: track number (throw away)
+08E0:   XOR A
+08E1:   LD (098E),A
+08E4:   LD (098F),A
+08E7:   LD A,(098D)
+08EA:   BIT 5,A
+08EC:   JR Z,08D2
+08EE:   RET
+---
+WRITE BYTE TO FDC:
+
+08EF    PUSH AF         (A is 0F, Seek)
+08F0    CALL 08C9       Wait for FDD Ready
+08F3:   POP AF          A is 0F
+08F4:   LD BC,FB7F
+08F7:   OUT (C),A       FDC Data Reg
+08F9:   RET
+---
+READ FDC RESULT
+
+08FA:   CALL 08C9       Wait for FDC ready
+08FD:   LD BC,FB7F      read FDC data
+0900:   IN A,(C)
+0902:   RET
+---
+SEEK TO TRACK:
+
+0903:   PUSH AF         A is disc track nr
+0904:   LD A,0F         0F is seek track cmd
+0906:   CALL 08EF       Start Seek
+0909:   LD A,(098B)
+090C:   LD B,A
+090D:   LD A,(098C)
+0910:   OR B
+0911:   CALL 08EF       write FDD index (should be 0)
+0914:   POP AF
+0915:   CALL 08EF       write track number
+0918:   CALL 08D2       wait seek-end
+091B:   RET
+---
+READ SECTOR TO patched target address
+this uses self-modifying code to patch the target address
+
+091C:   LD (092F),A     A is disc track nur
+091F:   PUSH BC
+0920:   CALL 0903       -> seek to track
+0923:   LD A,46         start READ DATA, but 40 bit is MFM(!?!?!)
+0925:   CALL 08EF
+0928:   LD A,(098B)     cmd byte 1: drive/head select
+092B:   CALL 08EF
+092E:   LD A,0A         track 10
+0930:   CALL 08EF
+0933:   XOR A           head nr (side)
+0934:   CALL 08EF
+0937:   POP BC          BC=C400
+0938:   LD A,B          A is sector number (e.g. C4)
+0939:   PUSH AF     
+093A:   CALL 08EF
+093D:   LD A,02         N (sector side * 256)
+093F:   CALL 08EF
+0942:   POP AF          A is C4
+0943:   CALL 08EF       set EOT param for Read Data (C4)
+0946:   LD A,24
+0948:   CALL 08EF       set GPL (gap length) param for Read Data (24H)
+094B:   LD A,FF
+094D:   CALL 08EF       DTL (not used, since N is set to 02)
+0950:   LD BC,FB7E
+0953:   LD HL,xxxx      self-modifying code sector data target address      
+0956:   IN A,(C)
+0958:   JP P,0956       
+095B:   AND 20
+095D:   JR Z,0967
+095F:   INC C
+0960:   IN A,(C)        READ DATA BYTE to 7000+
+0962:   LD (HL),A
+0963:   INC HL
+0964:   DEC C
+0965:   JR 0956         loop until sector read
+0967:   CALL 08FA       read FDC result
+096A:   LD (098D),A     ST0: 00
+096D:   CALL 08FA
+0970:   LD (098E),A     ST1: 00
+0973:   CALL 08FA
+0976:   LD (098F),A     ST2: 00
+0979:   5x CALL 08FA    throw away rest of result
+...
+0988:   RET
+---
+0989... DATA VALUES
+---
+SET TO NEXT SECTOR AND TARGET ADDRESS
+09B2:   LD A,(0989)     Sector number (e.g. C4)
+09B5:   INC A
+09B6:   CP CB           check for last sector number
+09B8:   JR NZ,09C0      
+09BA:   LD HL,098A      increment track nr if last sector reached
+09BD:   INC (HL)        
+09BE:   LD A,C1         ...and start at first sector of new track
+09C0:   LD (0989),A     updated sector number
+09C3:   LD HL,(0954)    bump sector data target address
+09C3:   LD DE,0200      sector size
+09C9:   ADD HL,DE
+09CA:   LD (0954),HL
+09CD:   RET
+---
+
+0A04:   LD A,(0989)     load disc sector nr (e.g. C4)
+0A07:   LD B,A
+0A08:   LD A,(098A)     load track nr (e.g. 0A)
+0A0B:   CALL 091C       READ SECTOR TO 7000+
+0A0E:   OR A            (A is 00)
+0A0F:   JR NZ,0A04
+0A11:   CALL 09B2       SET TO NEXT SECTOR AND ADDRESS (e.g. 7200)
+0A14:   LD A,08         0A15: SELF MODIFYING CODE!!!
+0A16:   DEC A
+0A17:   LD (0A15),A     Self modifying code
+0A1A:   JR NZ,0A04
+0A1C:   RET
+---
+SOUND CONTROL
+09E5:   LD A,(HL)
+09E6:   CP FF
+09E8:   RET Z
+09E9:   INC HL
+09EA:   LD B,F4
+09EC:   OUT (C),A   (PPI A -> PSG data) A=06
+09EE:   LD BC,F6C0  
+09F1:   OUT (C),C   (PPI C -> PSG ctrl) C=C0
+09F3:   OUT (C),0   
+...
+...  loop back to 09E5 until A is FF
+---
+WAIT FOR VSYNC
+09CE:   PUSH BC
+09CF:   PUSH AF
+09D0:   LD B,F5     (BC: F580, PPI B)
+09D2:   IN A,(C)
+09D4:   RRA
+09D5:   JR NC,09D2  loop until vsync
+09D7:   POP AF
+09D8:   POP BC
+09D9:   RET
+
+==================
+LOADED CODE AT 7F00 after disc loading...
+
+7F00:   DI
+7F01:   LD HL,C9FB      (EI + RET)
+7F04:   LD SP,0100      (was 0400)
+7F0A:   LD HL,7F40
+7F0D:   CALL 7F49       configure PSG with bytes from 7F40
+7F10:   LD BC,7F8D      write gate array
+7F13:   OUT (C),C
+7F15:   LD C,54         BC=7F54
+7F17:   LD A,10
+7F19:   OUT (C),A       ???
+7F1B:   OUT (C),A
+7F1D:   SUB 01
+7F1F:   JR NC,7F19      ???
+7F21:   LD HL,7000
+7F24:   LD DE,0100
+7F27:   CALL 7F68
+7F2A:   LD A,(7FEF)     A=00
+7F2D:   CP 09
+7F2F:   JP NZ,0100
+...
+---
+0100:   DI
+0101:   LD HL,C9FB
+0104:   LD (0038),HL
+0107:   LD SP,0100
+010A:   LD BC,7FC0      ; configure memory, all RAM, no ROM
+010D:   OUT (C),C
+010F:   LD BC,FA7E
+0112:   LD A,01
+0114:   OUT (C),A       ; FLOPPY ON
+0116:   LD HL,3640
+0119:   LD (03E3),HL
+011C:   LD HL,0F0E
+011F:   LD (03E5),HL
+0122:   LD DE,0D08
+0125:   CALL 02BF       ; PSG CTRL
+0128:   CALL 02B7       ; WAIT VSYNC
+012B:   LD HL,028F
+012E:   CALL 027E       ; configure CRTC
+0131:   LD HL,8000      ; clear 8000..BFFFF
+0134:   LD DE,8001
+0137:   LD BC,3FFF
+013A:   LD (HL),L
+013B:   LDIR
+013D:   LD BC,7FC8
+
+==============================================================
+...when the READ subroutine is called the second time,
+the FDC is still in the EXEC phase from the previous
+phase!!!
+
+
+...SET BREAKPOINT TO 01D5 after demo has started...
+
+01D5:   DI              ; LOADING... (!!!)
+01D6:   LD HL,4000
+01D9:   LD (030D),HL
+01DC:   LD HL,7FC4
+01DF:   LD (030F),HL
+01E2:   LD BC,(030F)    ;BC=7FC4
+01E6:   OUT (C),C       ; set ram config
+01E8:   CALL 03E7       ;read data from disc (second invocation crashes)
+01EB:   OR A
+01EC:   JR NZ,01E2
+01EE:   LD A,(0312)     ; A=38
+01F1:   DEC A
+01F2:   JR Z,0225
+01F7:   LD HL,(030D)    ; HL=4000... (sector data target address)
+01FA:   LD BC,(030F)    ; BC=7FC4
+01FE:   LD DE,0200
+0201:   ADD HL,DE        
+0202:   LD A,H          
+0203:   CP 80           ; check if all loaded
+0205:   JR NZ,020B
+0207:   LD HL,4000
+020A:   INC C
+020B:   LD (030D),HL
+020E:   LD (030F),BC
+0212:   LD A,(0316)     ; A=C2 (current sector)
+0215:   INC A
+0216:   CP CB           ; check for last sector
+0218:   JR NZ,0220
+021A:   LD HL,0315      ; bump track and rewind sector
+021D:   INC (HL)
+021E:   LD A,C1
+0220:   LD (0316),A
+0223:   JR 01E2
+
+
+
+
+---
+WRITE TO FDC:
+037F:   EX AF,AF'
+0383:   LD BC,FB7E      ; read FDC status
+0385:   JP P,0383
+0388:   INC C
+0389:   EX AF,AF'
+038A:   OUT (C),A
+038C:   RET
+---
+READ FDC RESULT BYTE:
+038D...
+---
+SEEK TO TRACK
+0399:   LD A,0F         ; SEEK CMD
+039B:   CALL 037F
+039E:   LD A,(03DF)     ; A=00
+03A1:   CALL 037F
+03A4:   LD A,(0315)     ; A=0B
+03A7:   CALL 037F
+03AA:   LD A,08         ; SENSE INTERRUPT
+03AC:   CALL 037F
+03AF:   CALL 038D       ; READ RESULT
+03B2:   LD (03E0),A     ; A = ST0
+03B5:   CALL 038D       ;
+03B8:   LD (0315),A     ; A = track (0B)
+03BB:   XOR A
+03BC:   LD (03E1),A
+03BF:   LD (03E2),A
+03C2:   LD A,(03E0)     ; A = ST0
+03C5:   BIT 5,A         ; check SEEK END
+03C7:   RET NZ
+03C8:   LD B,F5
+03CA:   IN A,(C)
+03CC:   RRA
+03CD:   JR NC,03AA
+03CF:   CALL 06ED
+03D2:   CALL 069A
+...
+---
+???
+03E7:   LD B,FF
+03E9:   LD A,(031F)     ; A=0B
+03EC:   CP B
+03ED:   CALL NZ,0399
+03F0:   LD A,(0315)     ; track (0B)
+03F3:   LD (03E8),A
+03F7:   LD BC,F4C0
+03FA:   LD DE,8000
+03FD:   LD HL,(03E3)
+0400:   EXX
+0401:   LD DE,(030D)    ; DE=4000
+0405:   LD H,30         ; HL=30C4
+0407:   LD IX,0445
+040B:   LD (0486),SP    ; -> self modifying code! SP=00FE
+040F:   LD A,46         ; READ TRACK
+0411:   CALL 037F
+0414:   LD A,(03DF)     ; A=00
+0417:   CALL 037F
+041A:   LD A,(0315)     ; A=0B (track)
+041D:   CALL 037F
+0420:   XOR A
+0421:   CALL 037F
+0424:   LD A,(0316)     ; A=C2
+0427:   CALL 037F
+042A:   LD A,02
+042C:   CALL 037F
+042F:   LD A,(0316)
+0432:   CALL 037F
+0435:   LD A,24
+0437:   CALL 037F
+043A:   LD A,FF
+043C:   CALL 037F       ; READ DATA cmd complete
+043F:   LD BC,FB7E
+0442:   LD SP,0564      ;
+0445:   IN L,(C)
+0447:   RET P
+0448:   BIT 5,L
+044A:   JR Z,045A
+044C:   LD L,A
+044D:   INC C
+044E:   INC A,(C)       ; read sector data byte
+0450:   LD (DE),A       : data byte -> 4000
+0451:   INC DE
+0452:   DEC C
+0453:   LD A,L
+0454:   LD IX,3010
+0458:   JP IX           ; !!!!!!!!!!!!! BRANCH ON STATUS BROKEN?
+045A:   LD (0462),SP    ; modify code below
+045E:   LD HL,0568
+0461:   LD DE,0000      ; get patched with SP from above
+0464:   OR A
+0465:   SBC HL,DE       ; HL=0004????
+0467:   JR Z,046B
+0469:   JR NC,047A
+046B:   LD HL,0698
+046E:   LD (0505),HL
+0471:   LD SP,(0462)
+0475:   LD IX,0479
+0479:   RET
+047A:   EXX
+047B:   LD (03E3),HL
+047E:   EXX
+047F:   LD HL,0564
+0482:   LD (0505),HL
+0485:   LD SP,00FE
+0488:   CALL 038D       ; READ FDC RESULT BYTE
+048B:   LD (03E0),A     ; 40
+048E:   CALL 038D
+0491:   LD (03E1),A     ; 00
+0494:   CALL 038D
+0497:   LD (03E2),A
+049A:   4x CALL 038D
+04A6:   CALL 0542
+04A9:   RET             ; SP=00FE
+
+---
+check FDC result?
+0542:   LD A,(03E0)
+0545:   BIT 7,A
+0547:   JR NZ,0561
+0549:   BIT 3,A
+054B:   JR NZ,0561
+054D:   BIT 4,A
+054F:   JR NZ,0561
+0551:   LD A,(03E1)
+0554:   AND 37
+0556:   JR NZ,0561
+0558:   LD A,(03E2)
+055B:   HR NZ,0561
+055F:   XOR A
+0560:   RET
+
+
+---
+..looks like "branch on FDC status"
+3010:   IN L,(C)        ; read status reg. BC=FB7E, HL=30FF -> 30B0
+3012:   JP HL           ; -> 30B0... hmm, maybe our status regs are wrong?
+
+30B0:   Add A,00
+30B2:   4xNOP
+30B6:   LD H,00
+
+---
+CONFIGURE CRTC
+027E...028D
+---
+WAIT VSYNC
+02B7...02BE
+---
+PSG STUFF
+02BF:   LD B,F4
+...
+02D5:   RET
+
+
+
+
+
+---
+CONFIGURE PSG
+7F49:   LD A,(HL)       08
+7F4A:   CP FF
+7F4C:   RET Z
+7F4D:   INC HL
+7F4E:   LD B,F4         BC=F400
+7F50:   OUT (C),A       PSG DATA
+7F52:   LD BC,F6C0      PSG Control
+7F55:   OUT (C),C
+7F59:   OUT (C),0
+7F59:   LD B,F4         BC=F4C0
+7F5B:   LD A,(HL)
+7F5C:   INC HL
+7F5D:   OUT (C),A
+7F5F:   LD BC,F680
+7F62:   OUT (C),C
+7F64:   OUT (C),0
+7F66:   JR 7F49
+---
+???? this copies all sorts of shit to the lower address area (0100...)
+7F68:   INC HL          HL=7000
+7F69:   INC HL
+7F6A:   INC HL
+7F6B:   INC HL
+7F6C:   LD A,80
+7F6E:   EXX
+7F6F:   LD DE,0001
+7F72:   EXX
+7F73:   CALL 7FD1 
+7F76:   JR C,7F7C
+7F78:   LDI             copies code from 7005 to 0100
+7F7A:   JR 7F73
+7F7C:   LD C,(HL)       (7037: 05)
+7F7D:   INC HL
+7F7E:   LD B,00
+7F80:   BIT 7,C
+7F82:   JR Z,7F9A
+...
+7F9A:   INC BC
+7F9B:   EXX
+7F9C:   LD H,D
+7F9D:   LD L,E
+7F9E:   LD B,E
+7F9F:   EXX
+7FA0:   CALL 7FD1
+7FA4:   JR NC,7FB0
+7FA6:   INC B
+7FA7:   JR 7F9F
+7FA9:   EXX
+7FAA:   CALL 7FD1
+7FAD:   EXX
+7FAE:   ADC HL,HL
+7FB0:   DJNZ 7FA9       B=01
+7FB2:   INC HL
+7FB3:   EXX
+7FB4:   RET C
+7FB5:   PUSH HL
+7FB6:   EXX
+7FB7:   PUSH HL
+7FB8:   EXX
+7FB9:   LD H,D
+7FBA:   LD L,E
+7FBB:   SBC HL,BC
+7FBD:   POP BC
+7FBE:   LDIR        HL: 0127, DE: 012D, BC: 0002
+7FC0:   POP HL
+7FC1:   CALL 7FD1
+7FC4:   JR C,7F7C
+7FC6:   LDI         HL: 7038, DE: 012F
+7FC8:   CALL 7FD1
+7FCB:   JR C,7F7C
+7FCD:   LDI
+7FCF:   JR 7F73
+
+---
+??? is called with A=80
+7FD1:   ADD A,A         (A=80 -> sets carry)
+7FD2:   RET NZ
+7FD3:   LD A,(HL)       (HL=7004) -> A=00
+7FD4:   INC HL          HL=7005
+7FD5:   RLA             A=01
+7FD6:   RET 
+...
+from here on nops
+
+
+
