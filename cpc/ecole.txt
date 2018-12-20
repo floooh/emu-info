@@ -1,0 +1,213 @@
+Ecole Busissoniere (disc loaded)
+================================
+
+Set breakpoints in following order:
+
+01C4
+    A000
+        0800
+
+---
+Entry:
+01C4    LD BC,7FC0
+01C7    OUT (C),C           configure memory
+01C9    PUSH DE             DE = 01C4
+01CA    LD HL,0015
+01CD    ADD HL,DE
+01CE    LD DE,A000
+01D1    LD BC,02C7
+01D4    LDIR                HL=01D9 => A000, len 02C7
+01D6    JP A000
+
+---
+A000    POP DE              DE=01C4
+A001    LD HL,02DC
+A004    ADD HL,DE           HL=04A0
+A005    LD BC,1DB6          
+A00B    LDIR
+A00D    LD HL,4000
+A010    LD DE,0C4A
+A013    LD BC,5DB6
+A016    CALL A098           ???
+A019    LD HL,0C4A
+A01C    LD DE,0800
+A01F    LD BC,097A
+A022    LDIR
+A024    LD HL,10EB
+A027    LD (HL),3
+A029    CALL 0800           -> hangs
+A02C    CALL A230
+A02F    CALL A192
+A032    CALL A100 
+A035    CALL A136 
+A038    CALL A160 
+A03B    CALL A1A0
+A03E    JP 0100
+
+---
+0800    CALL 0C30           ???
+0803    CALL 0C8F           ???
+0806    CALL 0F75           WAIT VSYNC
+0809    LD B,00
+080B    CALL 0F36           ???
+080E    CALL 0F75           WAIT VSYNC
+0811    DI
+0812    LD (0C21),SP
+0816    LD SP,0800
+0819    LD A,(B7F8)
+081C    LD (10D0),A 
+081F    LD A,(B7F6)
+0822    LD HL,0E6C
+0825    OR A
+0826    JR Z,082B 
+0828    LD HL,0EA3
+082B    LD (0EA6),HL        HL=0E6C
+082E    LD A,(0038)         A=C3    store previous interrupt vector
+0831    LD (0C24),A
+0834    LD HL,(0039)        HL=B941
+0837    LD (0C29),HL
+083A    LD A,C3             write new interrupt vector
+083F    LD HL,0D21
+0842    LD (0039),HL
+0845    LD HL,0E0C
+0848    LD (0D23),HL
+084B    EI
+084C    LD BC,F782          
+084F    OUT (C),C           PPI Control
+0851    LD BC,7FC0
+0854    OUT (C),C
+0856    LD A,07
+0858    LD C,3F
+085A    CALL 10AA           ???
+085D    LD HL,1160
+0860    CALL 0CE3           ???
+0863    LD HL,4000          clear 4000..7FFF
+0866    LD DE,4001
+0869    LD BC,3FFF
+086C    LD (HL),L
+086D    LDIR
+086F    LD DE,15C4
+0872    LD HL,4190
+0875    LD B,6D
+0877    LD A,38
+0879    LD (0CF6),A
+087C    CALL 0CF4           ???
+087F    LD DE,2D9C
+0882    LD HL,51C8
+0885    LD B,6B
+0887    LD A,2C
+0889    LD (0CF6),A
+088C    CALL 0CF4           ???
+088F    EXX
+0890    EX AF,AF'
+0891    PUSH AF
+0892    PUSH BC
+0893    PUSH DE
+0894    PUSH HL
+0895    CALL 0F75           WAIT VSYNC
+0898    LD B,00
+089A    DJNZ 089A
+089C    LD BC,BC0C
+089F    OUT (C),C           CRTC
+08A1    LD HL,0D50
+08A4    LD (0D23),HL
+
+08A7    CALL 0F75           WAIT VSYNC
+08AA    CALL 0E62           ???
+08AD    CALL 0E4F           ???
+08B0    LD B,30
+08B2    DJNZ 08B2
+08B4    HALT
+08B5    LD B,12
+08B7    CALL 0F36           ???
+08BA    NOP
+08BB    NOP
+08BC    CALL 0EDA           ???
+08BF    CALL 0C16           ???
+08C2    LD A,D
+08C3    OR A
+08C4    LD A,(10CE)
+08C7    ADD A,FC
+08C9    LD (10CE),A
+08CC    CP 92
+08CE    JP NZ,08A7          -> this loops fills violet bar from bottom
+
+08D1    LD BC,BC07          CRTC index (VSYNCPOS)
+08D4    OUT (C),C
+08D6    LD BC,BC00          CRTC data out   sets VSYNC POS to 0
+08D9    OUT (C),C
+08DB    LD BC,BC04          CRTC index (VTOTAL)
+08DE    OUT (C),C
+08E0    LD BC,BD1D          VTOTAL=1D
+08E5    CALL 0FD5           CHANGE HTOTAL/HSYNCPOS
+08E8    CALL 0F75           WAIT VSYNC
+08EB    HALT                !!! HANG !!!
+...
+
+============
+mc6845 VS pin triggers, but the gate array never causes a CPU interrupt
+because the GA vsync counter resets after 28 scanlines and doesn't even 
+reach 52...
+
+this is because the CRTC VS triggers 
+============
+
+
+---
+0E62    LD A,(1123)         A=8D
+0E65    LD B,7F
+0E67    OUT (C),A           mem config
+0E69    JP 0E6C
+0E6C    LD A9,(10D0)
+0E6F    DEC A
+0E70    JR NZ,0E90
+...
+0E81    LD B,7F
+0E83    XOR A
+0E84    OUT (C),A           select pen 0
+0E86    INC B
+0E87    OUTI                set pen 0
+
+
+0E90    LD HL,1100
+0E93    LD (10D0),A
+0E96    6x NOP
+0EA1    JR 0E81
+
+
+---
+
+0FD5    LD BC,BC00          CRTC index (HTOTAL)
+0FD8    OUT (C),C
+0FDA    LD BC,BD3A          HTOTAL=3A
+0FDD    OUT (C),C
+0FDF    42x NOP             (around1 scanline?)
+...
+1009    LD BC,BC02          CRTC HSYNCPOS
+100C    OUT (C),C
+100E    LD BC,BD33          HSYNCPOS=33
+1011    OUT (C),C
+1013    LD BC,BC00          CRTC select HTOTAL
+1016    OUT (C),C
+1018    LD BC,BD3F          HTOTAL=3F
+101B    OUT (C),C
+101D    RET
+
+---
+WAIT VSYNC
+0F75    LD B,F5
+0F77    IN A,(C)
+0F79    RRA
+0F7A    JR NC,0F77
+0F7C    RET
+
+
+
+
+
+
+
+
+
+
+
