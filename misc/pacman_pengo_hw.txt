@@ -1,0 +1,1122 @@
+                 Programming For Pac-Man And Pengo Hardware
+
+                               The Hardware
+
+
+	                       Scott Lawrence
+			      yorgle@gmail.com
+
+	                       2003-March-05
+
+
+	     This document and all of the information in it is
+	    freely distributable.  I only ask that you leave it 
+	      intact, without modifying its contents.  Enjoy!
+
+
+          The most recent version of this document can be found at:
+		    http://code.google.com/p/bleu-romtools/
+
+========================================
+                            THE HARDWARE
+========================================
+
+Contents:
+	Introduction
+	Sprite Based Graphics
+	The Memory Map
+	Floating Sprite Hardware
+	Collision Detection
+	Color
+	Palette ROM Layout
+	Lookup ROM Layout
+	Color ROMS
+	Video RAM Layout
+	Watchdog Timer
+	Timing and Initialization
+	Control and Dipswitches
+	Sound Hardware
+	Sound ROM Layout
+	Other Registers
+	Acknowledgment
+
+
+----------------------------------------
+                            Introduction
+
+Pac-Man and Pengo are two games from the early 1980's.  Pac-Man came
+out in 1980, and Pengo in 1982.  Pengo, was released by SEGA, as
+opposed to Pac-Man, which was released by Namco/Midway.  Many variants
+of both machines also exist.  There are over 30 different versions and
+bootlegs of Pac-Man, and on top of that, it is one of the most abundant
+and recognizable arcade video games.  There are also quite a few games
+that work directly on Pac-Man hardware with a simple ROM swap.  Eyes
+Ms. Pacman, Crush Roller, are amongst the list.  However, you cannot
+just take a Pac-Man romset and drop it into Pengo, or vice versa.
+
+So, why group them together?
+
+The hardware in Pengo is a superset of the hardware in Pac-Man.  That
+is to say that Pengo hardware can do everything that Pac-Man hardware
+can do, plus a little more.  For example, Pengo supports twice as many
+graphics sets as Pac-Man.  So you can see, that if you were to just
+start writing a program to be run on Pac-Man hardware, it should be
+trivial to get it working on Pengo hardware.  Well, it is, and it
+isn't, let me explain;
+
+Although the two machines posess similar hardware, they're not at the
+same places in memory.  Think of it like on your PC if you had two
+parallel ports, and in one, you have your scanner, and in the other you
+have your Zip drive.  If you were to bring your copy of windows and
+hardware over to another machine, it might have its parallel ports
+swapped, and then windows might get confused, cause it'd be telling
+scanner commands to the zip drive and vice-versa.
+
+We have the same problem here.
+
+For example, both machines posess joysticks.  Pac-Man is wired such
+that the order is UP, LEFT, RIGHT, DOWN,  whereas Pengo is wired such
+that the order is UP, DOWN, LEFT, RIGHT.  But that's just the tip of
+the iceberg.  Pac-Man only has half as much ROM "program" space as
+Pengo, so you have to limit how big your program gets to half of what
+Pengo is capable of if you want to be able to use it on both. And also
+as well, your RAM and Video Hardware are at different locations in
+memory on the two machines... but i'll get into that a bit later.
+
+What I have done is to make a common environment so that you can write
+a program (or game) once.  Then just by changing one line in a
+Makefile, it will be built for one or the other.  That is to say that I
+have taken the hardware, and abstracted the specifics out so that you,
+as a programmer, needn't know exactly where things are.  You can just
+use the RAM, or check to see if the user has moved right, etc.   I've
+successfully built two different applications, and had it run
+identically on emulated Pac-Man and Pengo hardware.
+
+
+----------------------------------------
+                   Sprite Based Graphics
+
+If you've done any programming for modern-day video hardware at all,
+then you're probably familiar with bitmapped raster graphics.  Sprite
+based graphics are a little different.  Instead of having a pixel by
+pixel resolution, you have a sprite by sprite based resolution.   It is
+akin to text mode on a PC, where you have just 255 characters to work
+with.  You can change the font, but you only get one font per screen.
+Some text-mode demos for the PC, like 'Textro' by OTM, actually build
+a new font for every image they want to draw.  On the other hand, you
+could do things like ANSI graphics, which is using the standard textmode
+font to display low resolution images on your screen.
+
+This is essentially what you have to work with on Pengo and Pac-Man
+hardware.  (Crush Roller, Rally X, Arabian, and a few others either use
+the same or similar hardware.)  About the only addition is that there
+is some extra hardware that lets you also display floating sprites over
+this tiled display at a pixel by pixel resolution.
+
+So what is the resolution we have here? 
+
+The hardware displays a 28 by 32 tile of 8x8 pixel sprites..  Every
+character on the display can be using a different color set, and every
+character itself is a four-color character.  Background sprites are 8x8
+pixels, Floating sprites are 16x16 pixels.  Background sprites can only
+be displayed in that 28x32 grid, whereas floating sprites can be anywhere
+in the 224x256 display.  ( 8*28 x 8*32 ) = ( 224 x 256 )
+
+The background sprites and the Floating sprites are stored in different
+roms, so you can have completely unrelated sprites in the background
+or floating over it in the foreground.  However, they both reference
+the same color palettes.  Pac-Man allows for only one set of each to
+be available. (One background sprite set and one floating sprite set.)
+Pengo hardware allows you to switch between two sets of each. (two
+background sprite sets, and two floating sprite sets).  These can be
+switched between at runtime.
+
+
+----------------------------------------
+                          The Memory Map
+
+So now you're wondering, how do I program for this?  How do I draw
+something on the background, and move some floating sprites over it?
+Well, it's actually a lot easier than you might think.
+
+All of the hardware is memory mapped.  That is to say that the control
+registers for the hardware are at specific locations in memory.  Unlike a
+PC, where all of the 'ports' require IO calls, you can just write out to a
+bit of memory to do stuff.  On PC's, the Parallel port requires reading in
+from a port 0x37f, or writing out to that port to read or write the bits.
+This hardware would just have that port at a specific location in memory,
+so you can just read or write it like any other variable.  
+
+Let's look at the Pengo memory map:
+
+	Memory Location		What it is
+
+	0x0000 - 0x7fff		Program ROM
+	0x8000 - 0x83ff		Video RAM
+	0x8400 - 0x87ff		Color RAM
+	0x8800 - 0x8fff		RAM
+
+	0x9000			Dip Switch 1
+	0x9040			Dip Switch 0
+	0x9080			Control Input 1
+	0x90c0			Control Input 0
+
+	etc...
+
+If you look at this, you will notice that you have 32 kilobytes of ROM
+space, 1 kilobyte of video ram, 1 kilobyte of color ram, and 2 kilobytes
+of RAM.  (Incidently, this is quite a bit more than the Atari 2600 VCS,
+which had _NO_ video ram, and 128 bytes of ram.  The VCS was the most
+popular home machine when Pengo was out in the arcades.)
+
+So, you can see that you don't have much elbowroom to work with.
+
+
+So what is this Video RAM and Color RAM?   Is the Color RAM where the
+palettes go?
+
+Nope.  Palettes are stored elsewhere.  I'll get to those in a bit.
+
+The Video RAM is the space in memory where you setup the background tiles
+of sprites.  This is almost the same as drawing with ANSI graphics in
+MS-DOS.  The Video RAM is where you would write sprites to be displayed.
+For example, at coordinate (4,5) place the letter "J".  The Color RAM is
+where you choose what colors the sprites in the video ram get displayed
+with.  Again, at coordinate (4,5) set the color "Green".   If you were
+to do both of those, you would have placed a Green "J" at coordinate
+(4,5) on the screen.  You can modify one and leave the other alone.
+So you could constantly change the colors of coordinate (4,5), and the
+"J" will appear to cycle through colors, or flash or what have you.
+
+One clever thing you can do is that you can display the same sprite with
+different colors.  Think about Pac-Man...  You have four ghosts chasing
+your little yellow circle dude around the maze.  One Red, Pink, Aqua, and
+Orange.  All four use the same sprite graphics, but with different colors.
+
+The resolution of the palette is a set of four colors.  That is to
+say that each palette entry consists of a collection of four colors.
+Each sprite (for this hardware) is a four-color sprite.  I'll get into
+color more in a bit...
+
+
+----------------------------------------
+                Floating Sprite Hardware
+
+So what are 'floating sprites' then?
+
+This hardware also has an extra chip for adding sprites over the
+background tiles at arbitrary locations.  I call these "floating sprites",
+since they float over the background, independant of it. You can have
+8 floating sprites in Pac-Man, but only 6 in Pengo.  Similarly to the
+Video and Color RAM, you specify the sprite and its color.  But along
+with these, you also specify its location on the screen, as well as
+whether or not you want to flip it in the x and y directions.
+
+This is how they got the single Pac-Man sprite to be facing left, right
+up and down without having to have too many repeats of the sprites.
+You just need one pointing up, and one pointing to the right.  The rest
+is done by mirroring the sprite in hardware using the x and y flip.
+
+So how do you use it?
+
+This is easily done, not as easily said. heh.  As with everything else,
+the hardware is the same between Pac-Man and Pengo, but is in a different
+memory locations on both.  There are two important bits to look for. 
+The first is the base registers, the second is the coordinate registers.
+
+The base registers contain the sprite number, x/y flip, and color.
+These are all stored in two bytes for each floating sprite supported.
+(Pengo supports 6, Pac-Man supports 8 floating sprites.)  For every
+sprite are these consecutive bytes.  The two bytes for floating sprite
+0 are at the base and base +1 addresses.  The two bytes for floating
+sprite 1 is at the base+2 and base+3 address, and so on.
+
+   Base Registers:
+
+   Byte 0:                   Byte 1:
+   [7][6][5][4][3][2][1][0]  [7][6][5][4][3][2][1][0]
+   [ Sprite number  ][x][y]  [         color        ]
+
+
+It really is as simple as you think it is.  Just shove the number for
+the sprite you want in bits 2-7 of byte 0, set bits 1 and 0 on byte 0 if 
+you want to flip the sprite horizontally or vertically.  Also, just 
+drop the color you want the sprite to be in Byte 1.  
+
+The color?  Single color?
+
+Well,  not really.  It's an entry into a palette, where each entry is
+a set of four colors.  All sprites on this hardware are four color 
+sprites.  Color 0 is used to signify transparency on the sprite.  When 
+the sprite is a background tile (which i'll get into later) then color 0
+is not transparent anymore.  More about color in a bit...
+
+The other registers you'll need to use are the coordinate registers. 
+Similarly to the base registers, these are pairs of bytes, arranged
+sequencially.  First the X value, then the Y value for sprite 0, then
+the x and y values for sprite 1 and so on.
+
+Byte 0 is the X value for sprite 0.  Byte 1 is the Y value for sprite 0.
+Byte 2 is the X value for sprite 1.  Byte 3 is the Y value for sprite 1.
+And so on...
+
+The coordinate is the location on the screen where the upper left of
+the sprite is positioned on the screen.  The coordinates start on the
+bottom right of the screen.  The first coordinate that the 16x16 sprite
+is completely visible is at 31x16.  If it's lower than that, it starts
+appearing at the top of the screen.  Be aware however that the sprite
+does not appear on the bottom 16 or top 16 pixels of the display.
+These are in the horizontally arranged background tiles which will be
+explained later in the Video RAM Layout section.
+
+Horizontally, however, there is a section off the right and left sides of
+the screen where the sprites are invisible.   That is to say that you can
+scroll a sprite off the left or the right 
+
+
+                      vertical wrap is visible
+         (239,256) +----------------------------+ (31,256)
+                   |                            |
+       horizontal  ~                            ~  horizontal
+   wrap is hidden  ~                            ~  wrap is hidden
+                   |                            |
+          (239,16) +----------------------------+ (31,16)
+                      vertical wrap is visible
+
+
+----------------------------------------
+                      Collsion Detection
+
+If you're going to have floating sprites, you're probably going to need
+some way to tell when they overlap.  This is called "Collsion Detection",
+where you're detecting when one sprite "collides" with another sprite,
+or a wall in your maze, or the like.
+
+There are many ways to do this, some require many cycles of processor time,
+some require very few, some are very accurate, and some are very 'messy'.
+
+For most applications, a quick, messy algorithm is really about all you
+will need.  (Besides, it gives you more time for your game code.)
+
+
+	if (sprite_x % (sprite width)  == sprite_N_x % (sprite width))
+	{
+	    /* they're about in the same column... check the row now */
+	    if (sprite_y % (sprite height)  == sprite_N_y % (sprite height))
+	    {
+		/* the sprite has collided with sprite_N. */
+
+		/* insert appropriate code here. */
+	    }
+	}
+
+
+It's not the most accurate routine, but it will work for most games.
+
+
+----------------------------------------
+                                   Color
+
+There is no mechanism or ability to change the color or palettes once
+the ROMS have been created.  The next section will describe how the
+palette roms are layed out, so that you can modify them if you like.
+
+There are two different roms here.  The first is the Palette ROM.  
+This one contains all of the individual colors we may wish to use.
+The second is the Lookup ROM.  This rom contains collections of 
+four-color entries which are used to color the sprites.  
+
+----------------------------------------
+                      Palette ROM Layout
+
+One byte specifies a color.  It specifies an RGB value.  Three bits for 
+each red and green, and two bits for blue.  (Your eye and video display 
+systems are weak in the blue region, so this is not a problem at all.)
+
+The Palette ROM is just a collection of 32 1 byte entries, specifying
+all of the colors we may wish to use in our lookup table entries. (Both
+Pac-Man and Pengo have 32 entries available to them.)
+
+For example, if you're going to be using Red multiple times, you don't
+need to have multiple Red entries.  Just one.  The lookup rom just 
+references that specific "red" entry in the Palette ROM for each
+instance of "red" that it needs.
+
+
+for each entry:
+	bits 7,6 - blue
+	bits 5-3 - green
+	bits 2-0 - red
+
+	ie:
+		Red   =  %0000 0111  = 0x07
+		Green =  %0011 1000  = 0x38
+		Blue  =  %1100 0000  = 0xc0
+
+		Yel   =  %0011 1111  = 0x3f
+		Cyan  =  %1111 1000  = 0xf8
+		pur   =  %1100 0111  = 0xc7
+
+	etc...
+
+byte1 is color0  
+byte2 is color1
+etc
+
+
+----------------------------------------
+                       Lookup ROM Layout
+
+This is just a collection of four-byte sets, specifying each of the
+color entries available for the Color RAM or Floating Sprite hardware.
+You will reference one of these color entries for each sprite you want
+to put to the screen.
+
+Quite simply, they specify what color 0, 1, 2, and 3 on the sprite
+maps to on the palette.  They are just stored raw in the rom. ie:
+
+[byte 0] [byte 1] [byte 2] [byte 3]  = color entry 0.
+[byte 4] [byte 5] [byte 6] [byte 7]  = color entry 1.
+
+These reference back into the Palette ROM.  So if the palette rom
+had the following colors as bytes 0 thru 7:
+
+	   0     1     2       3     4     5      6       7
+	[black][red][yellow][green][cyan][blue][purple][white]
+
+And the lookup ROM had: (starting at the beginning of the Lookup ROM)
+
+    0x00 0x00 0x00 0x00  /* color entry 0:  black black black black */
+    0x00 0x01 0x05 0x07  /* color entry 1:  black red   blue  white */
+    0x00 0x01 0x04 0x07  /* color entry 2:  black red   cyan  white */
+
+This means that if you were to use color 0 on a character or sprite,
+it would all be black.  If you used color 1, then the four colors used
+to paint that sprite or character on the screen are black, red, blue,
+and white.
+
+
+----------------------------------------
+                              Color ROMS
+
+Pacman and Pengo have different capabilties for color.  Both have support
+for 32 colors, but Pengo can have four times as many lookup entries.
+
+	Type	File	Entries		What it means
+
+Pacman	palette	.7f	32x1 byte	32 discrete colors max
+	lookup	.4a	64x4 byte	64 four-color entries
+
+Pengo	palette	.078	32x1 byte	32 discrete colors max
+	lookup	.088	256x4 byte	256 four-color entries
+
+
+----------------------------------------
+                        Video RAM Layout
+
+The layout of video ram (and color ram -- they're identically layed out) 
+is kind of strange.  It basically looks like this:
+
+    A     55 54 53 52 51 50 49 48
+    B     63 62 61 60 59 58 57 56
+    C           40 32 24 16
+    D           41 33 25 17
+    E           42 34 26 18
+    F           43 35 27 19
+    G           44 36 28 20
+    H           45 37 29 21
+    I           46 38 30 22
+    J           47 39 31 23
+    K     07 06 05 04 03 02 01 00
+    L     15 14 13 12 11 10 09 08
+
+
+NOTE: This is just an example, but it shows the real memory layout.
+      The example here is shown as being 4x10 resolution, when the 
+      real hardware has a 28x36 resolution.
+
+That is to say at offset of 55 into the video ram is the upper left
+corner, and an offset of 08 os the lower right corner.  But it doesn't
+stop there.  The four sprites in each of the corners (55, 54, 63, 62),
+(49, 48, 57, 56), (07, 06, 15, 14), and (01, 00, 09, 08) don't show up on
+the display.  That's how we get a width of 4 in this example, and not 8,
+as you might think.  I've no idea why they decided to lay out the memory
+in this fashion, but run with it.
+
+In the real hardware, the top two and bottom two rows (A, B, K, L)
+are 32 bytes long, instead of the 8 bytes in this example.  Also in the
+real hardware, the vertical rows (C thru J) also 32 bytes long, instead 
+of the 8 bytes in this example.  There are also 28 of them, instead of 4 
+in this example.  
+
+
+NOTE: So that you know, here are how the offsets in this example 
+      corrolate to real hardware:
+
+	this example	real hardware
+	    00		   0x0000
+	    08		   0x0020
+	    48		   0x03C0
+	    56		   0x03E0
+
+One thing that is easy to remember is that for the vertical section,
+the upper left corner is at an offset of 900 (decimal) on the Pacman
+and Pengo hardware.  On our example here, it's 40.  So to write
+out a string of text, first find the origin of the text:
+
+	offset = TOP_CORNER - ( x * (HEIGHT_OF_COLUMN) ) + y
+
+    so, for the above example:
+
+ 	      TOP_CORNER = 40
+	HEIGHT_OF_COLUMN = 8
+
+    or for real hardware:
+
+	      TOP_CORNER = 900
+	HEIGHT_OF_COLUMN = 32
+
+
+And then from there, every character to the right is at -HEIGHT_OF_COLUMN
+(-32) from the previous character.  So a function to put a text string
+out to the display might look like this:
+
+	#define HEIGHT_OF_COLUMN 32
+	#define TOP_CORNER       900
+
+	putstring(int x, int y, char * text, int color)
+	{
+	    int pos = 0;
+	    int loc = TOP_CORNER - ( x * HEIGHT_OF_COLUMN ) + y;
+
+	    while (text[pos] != '\0')
+	    {
+		videobuffer[pos] = text[pos];
+		colorbuffer[pos] = color;
+		pos++;
+		loc -= HEIGHT_OF_COLUMN;
+	    }
+	}
+
+Of course, you realize that this does not take into accout the topmost
+two lines, nor does it do the bottommost two lines.  Those are just
+stored right-to-left in the video memory.  You can figure out how to
+put text out to those yourself. ;)
+
+
+----------------------------------------
+                          Watchdog Timer 
+
+Another thing you will have to do, is to occasionally reset the watchdog
+timer.  The watchdog timer sits out there, constantly counting upwards.
+When it reaches its limit, it will reset the machine.  This is imperative
+to have on this kind of hardware, for if some wierd unexpected thing
+occurs, and the machine is "hung", it must be able to reset itself
+without the arcade owner's intervention.
+
+The counter itself is triggered off of the VBLANK, or "vertical blanking"
+interrupt.  This gets triggered 60 times a second, or every 16.7mSec, when
+the screen is done being drawn by the monitor.  When the count reaches 16,
+the four bit counter (74ls161 at 9c on the Pac-Man board) will "carry",
+and will reset the machine.  So you basically need to clear the watchdog
+timer quicker than four times a second otherwise it will reset itself
+on you.  All you need to do is to just put a lot of these in your code:
+
+in c:
+	char * watchdog;
+	watchdog = 0x50c0;	/* pac-man watchdog address */
+				/* use 0x9070 for pengo */
+
+	*watchdog = 0;		/* clear the watchdog timer */
+
+in Z80 asm:
+	.equ	watch, 0x50c0	; pac-man watchdog address
+				; use 0x9070 for pengo 
+	
+	xor	a
+	ld	(watch),a	; clear the watchdog timer
+
+
+----------------------------------------
+               Timing and Initialization
+
+There are two methods to do timing in the hardware.  The first is a simple
+busy loop, the second watches the vertical blank to judge actual time.
+
+The first, a busy loop, is very simple, and can be quite inaccurate.
+It is a simple for loop that counts to some arbitrary value, which after
+experimentation and testing, will delay the required amount of time.
+
+It looks like this:
+
+
+	/* wait for about three to four seconds... */
+        for ( x=0 ; x<10000 ; x++)
+        {
+            /* put code here to check the inputs */
+        }
+
+
+The problem with this, is that depending on what you do in the loop, will
+change the amount of time it sits waiting.  Obviously, nothing else in
+the system can happen while this loop is executing, so you should at least
+reset the watchdog timer, and count coin drops while this is happening.
+
+
+The other method is to setup an IRQ routine, and handle timing off of
+a real clock source.  Unfortunately, there is nothing like a realtime
+clock in the pac-man hardware... but we have something close.  There is an
+interrupt that happens between every frame that gets drawn on the screen.
+(When the vertical blank, or VBLANK happens.)  This happens 60 times
+per second, like clockwork, if you forgive the pun.
+
+So how do you use this timer?  Well, it's a two step process.  You should
+look at the 'rst' opcode for the Z80 to start off with:
+
+	;restart location
+	rst	0x0000		; C7    rst 0
+	rst	0x0008		; CF    rst 1
+	rst	0x0010		; D7    rst 2
+	rst	0x0018		; DF    rst 3
+	rst	0x0020		; E7    rst 4
+	rst	0x0028		; EF    rst 5
+	rst	0x0030		; F7    rst 6
+	rst	0x0038		; FF    rst 7
+
+Those are all of the 'rst' opcodes.  So, what are these, and what do they
+have to do with anything?  The 'rst' opcode is a single byte opcode that
+does the equivalent to a jump ('jp') or a call ('call') method to go to
+a subroutine.  The 'jp' and 'call' opcodes require three bytes, rather
+than just one for 'rst'.  The limitation is that there are only 8 valid
+'rst' opcodes, which jump to eight specific locations.  The 8 locations
+are 0x0000, 0x0008, 0x0010, and so on.  They are 8 bytes apart, so there
+is space in there for a 'jp' to the handling routine for that 'rst' call.
+
+When the system starts up, it does the equivalent to "rst 0x0000", and
+starts at memory location 0x0000.  From there, there should be a jump
+to your initialization routine.
+
+That initialization routine should first set up any timers, then any other
+system initializaion, and then call your own game routine.  As would be
+expected, when setting up interrupts, you should turn off interrupts.
+Then re-enable them after the setup is complete.
+
+
+    irqen = 0x5000		; pac-man irq enable register
+
+    .init:
+	di			; disable processor interrupts
+	ld      sp, #.stack	; setup the stack pointer.
+	im	1		; set interrupt mode 1
+				; all interrupts go through vector 0x0038
+
+        ld      a, #0xff	; fill register 'a' with 0xff
+        out     (0x00), a	; do an 'out' to port 0x00 with data 0xff
+        ld      a, #0x01	; fill register 'a' with 0x01
+        ld      (irqen), a	; enable the external interrupt mechanism
+
+        ei			; enable processor interrupts
+	call	your_routine	; call your main game/app routine
+
+
+If you notice in there, we do an 'out' to port 0x00 with 0xff.  If we
+look above, the opcde "0xff" is the "rst 0x38" opcode.  This is setting
+the VBLANK interrupt request routine (IRQ), to opcode 0xff, meaning
+that when the VBLANK interrupt occurs, it will do the equivalent of the
+"rst 0x38" opcode.  Your IRQ routine should be at 0x0038 in the memory
+space of the processor.  For Pac-Man, this memory space is in the first
+ROM.  Of the three Interrupt modes, mode 1 is the only one we need to
+care about.  It sends all interrupts (not including the NMI) through
+our routine at 0x0038.  (For Mode 0, it will vector off to whatever
+data is on the databuss, Mode 2 will do something similar, where some
+data is passed in and the vector is computed.)
+
+Since this IRQ routine is the last one in the list, we can just start
+the IRQ code at 0x0038 in the rom.  The following sample routine just
+increments a counter variable (a 16 bit (two byte) value).  At normal
+operation, it takes about 18 minutes for this variable to overflow,
+and loop around.  This should not be a problem.
+
+
+    timer = 0x4c00		; timer variable -- at base of RAM
+
+    .irq:
+        di			; disable processor interrupts
+        push    af		; store aside register 'af' to the stack
+        push    bc		; store aside register 'bc' to the stack
+        xor     a		; a = 0
+        ld      (irqen), a	; disable the external interrupt mechanism
+       
+        ld      bc, (timer)	; bc = timer
+        inc     bc		; bc++
+        ld      (timer), bc	; timer = bc
+
+				; do any other code here if you like
+       
+        ld      a, #1		; a = 1
+        ld      (irqen), a	; enable the external interrupt mechanism
+       
+        pop     bc		; restore register 'bc' from the stack
+        pop     af		; restore register 'af' from the stack
+        ei			; enable processor interrupts
+        reti			; return from interrupt routine
+
+
+This is about as simple as you can get.  You can actually put some
+logic in here for registering inputs and coin drops if you like, but
+this should get it on its feet.  Just be sure to save and restore any
+registers you may use.  You also need to be sure that this routine does
+not take longer than 1/60th of a second to execute, or your main code
+will never get a chance to execute... or the IRQ routine will re-enter
+itself, and things will die a horrible, miserable death.
+
+If you want to see how this is used in practice, look in the 0crt.asm
+file which is the runtime Small C compiler.  The one that is available
+from my development environment has been modified from the generic one
+(which is also there) so that all of this is already done for you.
+Also done already in that file, is that all of these bits are in their
+proper locations.
+
+Once all of that is set up, you will need to use it in your program.  All
+you need to do for a two second delay, for example, is the following:
+
+
+	int wait_until;
+
+	/* set the final end time to be:
+		 now + (60 ticks per second) * (2 seconds)
+	*/
+	wait_until = timer + (60 * 2);
+
+	/* wait for it to happen */
+	while (timer <= wait_until)
+	{
+	    reset_watchdog_timer();
+	    check_for_user_input();
+	    /* do other appropriate things here */
+	}
+
+
+That's it.  If you look in my "hello" source, you can see how I use the
+timer to animate the sprites at a specific rate.
+
+
+This method is a bit more complex to get it working, but yields much
+more accurate results.  Once you have the mechanism set up, it's easy
+to re-use it for all of your projects.
+
+
+----------------------------------------
+                 Control and Dipswitches
+
+Since all of the hardware is all memory mapped, we can just look out
+into memory at the dipswitches and input ports.  Pengo and Pac-Man have
+them located at different places in memory, but the technique is the
+same for both.
+
+Most, if not all of the control lines for these games are normally closed
+That is to say that if you look at the data stored in IN0 at the Player 1
+Joystick Up bit, it will be 1 when the joystick isn't "up", and it will
+be 0 when the user pushes the joystick upwards.  This is true for the 
+coin slots as well.  
+
+Dipswitches are usually in banks of 8.  If you just read the byte at 
+the hardware's memory location for the dipswitch, you will see the state
+of all 8 switches.  "OFF" switches set that bit to 0.  "ON" switches
+will set that bit to 1.
+
+
+----------------------------------------
+                          Sound Hardware
+
+The sound hardware is actually pretty easy to work with.  There are a
+set of registers, each for a single 'voice'.  Each voice is independant
+of the other ones.  The hardware supports three such voices.
+
+  Register Name			Pac Address(es)         Pengo Address(es)
+
+  Voice 1 Waveform		0x5045			0x9005
+  Voice 1 Volume		0x5055			0x9015
+  Voice 1 Frequency		0x5050 - 0x5054		0x9011 - 0x9013
+  Voice 1 Accumulator		0x5040 - 0x5044		n/a
+
+  Voice 2 Waveform		0x504A			0x900A
+  Voice 2 Volume		0x505A			0x901A
+  Voice 2 Frequency		0x5056 - 0x5059		0x9016 - 0x9018
+  Voice 2 Accumulator		0x5046 - 0x5049		n/a
+
+  Voice 3 Waveform		0x504F			0x900F
+  Voice 3 Volume		0x505F			0x901F
+  Voice 3 Frequency		0x505B - 0x505E		0x901B - 0X901D
+  Voice 3 Accumulator		0x504B - 0x504E		n/a
+
+Each of these only look at the bottom nibble at that location, so
+instead of 256 possible values for each address, it instead is only
+16.
+
+  == Waveform ==
+
+    This is a selector to choose which 'waveform' or tonal quality will
+    be played on the voice.  There are only 8 waveforms to select from,
+    so really, only the bottom three bits of the bottom nibble are looked
+    at.  Here's my best guess at what each of them sound like:
+
+    Waveform Number	low 			high
+
+	0x00		Synth Bass (smooth)	smooth tone
+	0x01		Idling Engine		higher tone
+	0x02		Tank Engine		sawtoothy tone
+	0x03		Noisy Bass		bell-like noise
+	0x04		Pingy Bass		electric razor
+	0x05		Chirpy 			almost silent
+	0x06		almost silent		smooth nice tone
+	0x07		brappy 			droning high pitch
+
+    ...Your milage may vary.  Try out Dave Widel's test rom to experiment
+    with these. (http://www.widel.com)
+
+
+  == Frequency ==
+
+    For all voices, there are four registers which control the tone.
+    Voice 0 has an extra register which adds in ``very low''
+    frequencies, below the other standard four.  These, as with the
+    other sound registers, only use the bottom nibble of each byte.
+    Each byte is a complete octave/suboctave of the next/previous
+    byte.
+
+    The following table shows how these line up.  The addresses used in
+    this example are for Pac-Man.
+
+    Voice	0x5050	0x5051	0x5052	0x5053	0x5054
+	1	0x0f	0x0f	0x0f	0x0f	0x0f
+
+    Voice		0x5056	0x5057	0x5058	0x5054
+	2		0x0f	0x0f	0x0f	0x0f	
+
+    Voice		0x505B	0x505C	0x505D	0x505E
+	3		0x0f	0x0f	0x0f	0x0f
+
+    The way that this works is that from 0x00 to 0x0F in register 0x505C
+    is a complete octave. For example, to get a tone halfway between
+    0x01 and 0x02 in register 0x505C, you would put an 0x07 in 0x505B.
+    It should be noted that in the typical scale, there are 12 halftones
+    per octave, while here, there are 16 steps per octave.
+
+    Pengo only has three registers for frequency for each of the voices,
+    as opposed to Pac-Man's 5, 4, and 4 registers for each of the
+    voices.
+
+    Here is a table of one octave As you can see, the least significant
+    bits are in the base register, with the more significant bits being
+    in the offset registers:
+
+	Note	freg	freg+1	freg+2	freg+3
+	 C-1	0d	05	01	00	
+	 C#1	03	07	01	00
+	 D-1	09	08	01	00
+	 D#1	0a	0a	01	00
+	 E-1	0f	0b	01	00
+	 F-1	05	0d	01	00
+	 F#1	06	0f	01	00
+	 G-1	07	01	02	00
+	 G#1	08	03	02	00
+	 A-1	08	05	02	00
+	 A#1	09	07	02	00
+	 B-1	0a	09	02	00
+
+    You could store these table lookups as either one word, or four
+    bytes.  The trade off is between speed of execution and rom
+    space.  For example, you could store "F-1" as chars:
+
+    char_f1:
+	.byte	0x05, 0x0d, 0x01, 0x00
+
+    or as a word:
+
+    word_f1:
+	.word	0x01d5
+
+    That is a decision that you, as the programmer, will have to
+    figure out for yourself.  Decoding from the word requires much
+    more code.  Instead of a single reference per frequency register,
+    you need to do a bunch of shifts.  You can probably get away
+    with not doing the bitmasking after the shift, since the sound
+    hardware probably ignores that anyway.
+
+in c:
+	char * v1_frequency;
+
+        v1_frequency = 0x5050; /* 0x9010 for Pengo */
+
+	*(v1_frequency+0) = (word_f1) & 0x000f;  /* play F-1, 0x01d5 */
+	*(v1_frequency+1) = (word_f1 >> 0x04) & 0x0f;
+	*(v1_frequency+2) = (word_f1 >> 0x08) & 0x0f;
+	*(v1_frequency+3) = (word_f1 >> 0x0C) & 0x0f;
+
+in Z80 asm:
+	; this code is left as an exercise for the user.  ;)
+
+
+    Anyway, to set the hardware up to play the note, "F-1", you
+    would do it this way:
+
+in c:
+        char * v1_frequency;
+
+        v1_frequency = 0x5050; /* 0x9010 for Pengo */
+
+	*(v1_frequency+0) = 0x05;  /* play F-1, 0x01d5 */
+	*(v1_frequency+1) = 0x0d;
+	*(v1_frequency+2) = 0x01;
+	*(v1_frequency+3) = 0x00;
+
+in Z80 asm:
+        .equ    v1_freq,	0x5050  ; 0x9010 for Pengo
+
+	ld 	hl, v1_freq	; hl = v1_freq
+	ld	a, 0x05
+	ld	(hl), a		; v1_freq = 0x05
+	inc	hl
+	ld	a, 0x0d
+	ld	(hl), a		; v1_freq+1 = 0x0d
+	inc	hl
+	ld	a, 0x01
+	ld	(hl), a		; v1_freq+2 = 0x01
+	inc	hl
+	xor	a
+	ld	(hl), a		; v1_freq+3 = 0x00
+
+    Obviously, there are other things you need to do to play the sound,
+    like set the waveform, as well as enable the sound hardware itself.
+    All of that is covered in the following text.
+
+
+  == Volume ==
+
+    The volume is perhaps the simplest of the sound registers.  It
+    basically controls the volume of the tone generated by that voice.
+    There are 16 steps to the volume, starting with the voice silent at
+    0x00, and ending with the voice at maximum volume at 0x0F.
+
+
+  == Accumulator ==
+
+    Pac-Man also adds some registers which are used by the sound
+    hardware and should not be touched by your programs.  These are the
+    "accumulator" registers.  They do not exist on Pengo hardware, so
+    don't expect them to be there.
+
+  == Sound Enable Register ==
+
+    It should also be noted that there is a register that will mute all
+    of the channels.  It enables and disables all of the voices
+    simultaneously.  You should never assume that this is set or unset
+    when the machine starts up.  Set it to be the way you want it to
+    be. Generally, the first thing you do at power up should be to
+    disable sound, just in case the machine's sound hardware is filled
+    with junk data.
+
+	Pac-Man Sound Enable Register:	0x50C0
+	Pengo Sound Enable Register:	0x9041
+
+
+
+It is as easy to use as you might expect.  All that you need to do is
+to write out values to the different sound register locations to make sound.
+To get a tone to come out, you need to basically:
+    
+    * enable the sound on the hardware
+    * set the tone of a voice
+    * set the frequency of a voice
+    * set the volume of a voice
+
+If any of those are 0x00, you will not hear any tone from the
+voice(s).  Here is some example code that makes a noise:
+
+in c:
+        char * snd_en;		/* sound enable */
+        char * v1_volume;
+        char * v1_waveform;
+        char * v1_frequency2;
+
+        snd_en	      = 0x5001; /* 0x9041 for Pengo */
+        v1_volume     = 0x5055; /* 0x9015 for Pengo */
+        v1_waveform   = 0x5045; /* 0x9005 for Pengo */
+        v1_frequency2 = 0x5052; /* 0x9012 for Pengo */
+
+        *snd_en        = 1;	/* enable audio */
+        *v1_volume     = 0x0F;	/* Set the volume to maximum */
+        *v1_waveform   = 0x02;	/* switch to waveform 3 */
+	*v1_frequency2 = 0x0E;  /* set one of the frequency registers */
+
+in Z80 asm:
+        .equ    snd_en,		0x5001  ; 0x9041 for Pengo
+        .equ    v1_volume,	0x5055  ; 0x9015 for Pengo
+        .equ    v1_waveform,	0x5045  ; 0x9005 for Pengo
+        .equ    v1_freq2,	0x5052  ; 0x9012 for Pengo
+
+        ld      a, #1		; a = 1
+        ld      (snd_en),a	; enable audio
+
+        ld      a, #0x0f	; a = 0x0f
+        ld      (v1_volume),a	; Set the volume to maximum
+        ld      a, #0x02	; a = 0x02
+        ld      (v1_waveform),a	; switch to waveform 3 
+        ld      a, #0x0E	; a = 0x0E
+        ld      (v1_freq2),a	; set one of the frequency registers
+
+You can also change these from a timer interrupt, or somesuch to play
+music in the background of your program, reading simply from a table of
+predefined values.  You can also do interesting effects by varying the
+volume (tremolo) or frequency (vibrato) at a rapid rate.
+
+
+----------------------------------------
+                        Sound ROM Layout
+
+The Pac sound rom (82s126.1m) is a 256 byte rom, similar to the color
+roms mentioned previously in this document.  The rom contains the 8
+waveforms which you select with the waveform register above.
+
+The data in the Pengo roms can be seen in the following PNG images:
+
+    http://umlautllama.com/projects/pacdocs/waves/pengowaves01.png
+    http://umlautllama.com/projects/pacdocs/waves/pengowaves23.png
+    http://umlautllama.com/projects/pacdocs/waves/pengowaves45.png
+    http://umlautllama.com/projects/pacdocs/waves/pengowaves67.png
+
+The data in the Pac roms can be seen in the following PNG images:
+
+    http://umlautllama.com/projects/pacdocs/waves/pacwaves01.png
+    http://umlautllama.com/projects/pacdocs/waves/pacwaves23.png
+    http://umlautllama.com/projects/pacdocs/waves/pacwaves45.png
+    http://umlautllama.com/projects/pacdocs/waves/pacwaves67.png
+
+The waveforms are each 32 one-byte samples, with data only in the
+lower nibble.  Each sample can contain a value from 0 to 0x0f.  To
+play different wave shapes, just convert them to be 32 samples
+long, and only ranging in amplitude from 0 to 15.
+
+For example, an imperfect triangle wave (starts at 0x01, ramps up
+to 0x0F, then ramps back down to 0x1) would be stored as:
+
+	; triangle wave, similar to Pacman's waveform 6
+	.byte	0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+	.byte	0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F
+	.byte	0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08
+	.byte	0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01
+
+Then immediately following that is the next waveform.  Here's a 
+sine wave as a second example.
+
+	; sine wave, just similar to Pac-Man's waveform 0
+	.byte	0x07, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0d, 0x0e
+	.byte	0x0e, 0x0e, 0x0d, 0x0d, 0x0c, 0x0b, 0x0a, 0x09
+	.byte	0x07, 0x05, 0x04, 0x03, 0x02, 0x01, 0x01, 0x00
+	.byte	0x00, 0x00, 0x01, 0x01, 0x02, 0x03, 0x04, 0x05
+
+Notice how it crosses the zero point at the beginning and middle
+of the waveform.
+
+If the waveform repeats twice in the 32 bytes of the sample, then
+the frequencies played back will be double what the frequency
+registers are set at.
+
+
+
+----------------------------------------
+                         Other Registers
+
+I'm not entirey sure about most of these.  I'm also not sure if some
+of these registers (ie: palette bank selector, color lookup bank) are
+even emulated.   I also know that the Watchdog Counter is important,
+but i'm not sure what do do with it, as I have found no information if
+the watchdog circuitry is even emulated in MAME.  So the problem here is
+that if the watchdog is not reset properly, your programs may work fine
+on the emulator, but might just sit and reset itself on real hardware.
+
+
+interrupt enable
+----------------
+    Enables and disables the interrupt circuitry.
+
+    set to 0 to disable interrupts
+    set to 1 to enable interrupts
+
+flip screen
+-----------
+    Set to 1:  The background video buffer is rendered vertically.
+	       This _DOES_NOT_ change the floating sprites at all. 
+
+    Set to 0:  The background video buffer is rendered normally.
+
+    This is useful for "Cocktail" use, where you have to flip the screen
+    vertically for player 2 to play the game right-side-up.
+
+sprite bank
+-----------
+    (Pengo Only)
+    Set to 0: BOTH the background and floating sprite banks to bank 0
+    Set to 1: BOTH the background and floating sprite banks to bank 1
+
+start lamps
+-----------
+    Since Pac-Man and Ms. Pac-Man both don't use start lamps, this
+    is really kind of unclear.  Generally with games, there sometimes
+    are lights inside of the start buttons.  "Asteroids" is an
+    example of this.  There are no known releases of Pac-Man with
+    start button lights.
+
+    Due to this, the following is a complete guess.
+    Set to 0: the lamp associated with that register turns off
+    Set to 1: the lamp associated with that register lights up
+
+coin counters
+-------------
+    not totally sure
+    set to 1, then 0 I imagine to toggle a pulse for the coin counter
+
+coin lockout
+------------
+    I'm not sure about this one. Pac-Man doesn't have coin lockout
+    hardware or circuitry.
+
+    Generally, coin lockout mechanisms keep the user from adding
+    in more coins once the game is in play.  This keeps the game
+    from having to keep track of new quarter drops during gameplay.
+    Most Pac-Man machines do not have this mechanism, and thus
+    should watch for coin drops all of the time.
+
+watchdog reset
+--------------
+    On the real hardware, this needs to be reset to zero frequently to 
+    prevent the hardware from automatically resetting itself.  Just set
+    to zero a lot, and you should be fine. (Or clip the circuit from 
+    your board. hehe.)  This needs to be cleared less than every 15
+    frames to keep the game from resetting on you.
+
+palette bank selector
+---------------------
+    not sure
+
+color lookup bank
+-----------------
+    not sure
+
+
+----------------------------------------
+                          Acknowledgment
+
+Many thanks go out to Clayton Cowgill for many key bits of information
+which will help your program work on real hardware.  Visit his cool
+site at http://www.multigame.com   Thanks Clay!
+
+Thanks to Dave Widel for providing his "PacTest" rom, along with
+answering oodles of little questions via email.  Check out his site,
+chock full of awesome games that run on Pac hardware at
+http://www.widel.com   Awesome!
+
+And of course, Kev "Mowerman" for supplying me a Pac-Man board with
+which I will be testing later on.  Visit his fact-filled site at
+http://users.erols.com/mowerman/   You rock, Kev!
