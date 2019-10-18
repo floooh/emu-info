@@ -1,0 +1,41 @@
+http://codebase64.com/doku.php?id=base:pixel_aspect_ratio
+
+Pixel Aspect Ratio
+
+The VIC-II's pixels are not actually square. The actual pixel aspect
+ratio (PAR) can be calculated as follows (PAL):
+
+For a 1:1 really square pixel, a pixel clock of 14.75000 MHz is needed.
+Without interlacing, like the VIC-II does, half of it, i.e., 7.37500
+MHz. The C64 is clocked at 0.98525 MHz, where 8 pixels are drawn each
+cycle, which makes a pixel clock of 0.98525 MHz * 8 = 7.88200 MHz. That
+makes 7.37500 / 7.88200 = 0.93568. This means that the pixels are a bit
+narrower than a 1:1 pixel.
+
+The above calculation only considers the difference in width between a
+C64 pixel and a 1:1 pixel. However, with a CRT-based display the height
+differs too if the raster line timing of the C64 doesn't match the
+standard line timing. The reason for this is that the vertical speed of
+the raster beam is constant during the active display area. This makes
+the vertical distance travelled by the raster beam between lines
+directly related to the time it takes for it to move from one line to
+the next.
+
+The PAL standard line frequency is 15.62500 kHz. The C64 is clocked at
+0.98525 MHz and one line is 63 cycles which results in a line frequency
+of 0.98525 * 1000 / 63 = 15.63889 kHz. That makes 15.625 / 15.63889 =
+0.99911. This means that the pixels are slightly shorter than a 1:1
+pixel.
+
+Together this results in a total PAR (X:Y) of 0.93568:0.99911 which is
+equivalent to PAR (X/Y) 0.9365. This means that the pixels are taller
+than they are wide.
+
+The following table contains the above calculations for all C64 variants:
+              1:1 pixel clock 1:1 line freq CPU clock cycles/line PAR X:Y         PAR X/Y
+PAL           7.37500         15.62500      0.98525   63          0.93568:0.99911 0.9365
+PAL-N (Drean) 7.37500         15.62500      1.02344   65          0.90076:0.99236 0.9077
+NTSC          6.13636         15.73427      1.02273   65          0.75000:1.00000 0.7500
+NTSC (old)    6.13636         15.73427      1.02273   64          0.75000:0.98461 0.7617
+
+base/pixel_aspect_ratio.txt ? Last modified: 2010/11/08 22:44 by magli

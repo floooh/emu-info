@@ -1,0 +1,121 @@
+VIC-Addendum.txt
+----------------
+revision 0.3 20100729
+
+AUTHORS
+  The debugging, analysis and insights found here was done by
+Daniel Kahlin, Hannu Nuotio, Antti Lankila and Andreas Matthies as
+part of the VICE project.
+
+REFERENCES
+  VIC-Article.txt
+
+SCOPE
+  We will try to fill in some blanks found in the popular VIC-Article.txt
+by Christian Bauer.
+
+
+MODELS
+  This document will try to note differences between different chip models
+and revisions where applicable.  Currently only PAL models are considered.
+
+[6569R1] 6569R1 (oldest 5 luma version)
+[6569]   6569R3 and above.
+[8565]   8565R2 and above (I have only seen R2)
+[8566]   8566 as found in the C128[CR/D]
+
+
+TEST PROGRAMS
+  References in the form [T:*] refer to test programs available at
+https://vice-emu.svn.sourceforge.net/svnroot/vice-emu/testprogs/VICII/
+
+
+Sprite idle fetch
+-----------------
+Whatever appears on the VIC-II internal bus during the fetch cycles
+is displayed.  That is both loads and stores to the VIC-II, or $ff if
+no access occurs.
+
+
+Sprite crunch
+-------------
+Rules 7 and 8 in the article section 3.8.1 do not cover sprite crunch in full.
+A more accurate replacement for both rules:
+
+7. In the first phase of cycle 16, it is checked if the expansion flip flop
+   is set. If so, MCBASE load from MC (MC->MCBASE), unless the CPU cleared
+   the Y expansion bit in $d017 in the second phase of cycle 15, in which case
+   MCBASE is set to X = (101010 & (MCBASE & MC)) | (010101 & (MCBASE | MC)).
+   After the MCBASE update, the VIC checks if MCBASE is equal to 63 and turns
+   off the DMA of the sprite if it is.
+
+Note: The original rule 8 mentions turning the display of the sprite off
+if MCBASE is equal to 63. If this were true, then the last line of the sprite
+would not be displayed beyond coordinates corresponsing to cycle 16.
+The above rewritten rule corrects this. The actual disabling of sprite display
+is likely handled during the first phase of cycle 58 (see rule 4).
+
+
+Raster IRQ
+----------
+Raster comparison is edge triggered.  If $d012 is changed to always
+follow the raster counter it will never trigger an IRQ condition.
+
+This can be seen in patent US4572506.
+
+[T:rasterirq]
+
+
+Light pen
+---------
+Light pen doesn't trigger in line 311.
+Light pen retriggers on the start of the frame if the line is held low.
+
+6569 is one pixel higher than 8565 except when retriggered at the start
+of frame.
+6569R1 only triggers IRQ during start of frame.
+
+[T:lightpen]
+
+
+Start of frame
+--------------
+Start of frame occurs one cycle late after line 311 ends.
+Line timing wraps normally at cycle 63.
+
+
+Fetch
+-----
+When changing from RAM to (char)ROM fetches, the LSB of the fetch address
+is latched using the mode from the previous cycle, and the upper bits come
+from the current mode. This glitch happens on 6569, but not on 8565.
+
+[T:modesplit, movesplit]
+
+
+Video bank and C64C
+-------------------
+The glue logic on a C64C will generate a glitch during 10 <-> 01
+generating 00 (in other words, bank 3) for one cycle.
+
+When using the data direction register to change a single bit 0->1
+(in other words, decreasing the video bank number by 1 or 2),
+the bank change is delayed by one cycle. This effect is unstable.
+
+[T:fetchsplit]
+
+
+Grey Dots on 856x
+-----------------
+When writing a color register ($D020-$D02E) currently being used to
+display graphics a grey dot (color 15) appears at the first pixel of the
+cycle.  
+
+The reason for the grey dot appears to be a glitch in the color register
+bank itself, not in the mapping from color enables to actual 4-bit color.
+This effect is thus independent of the previous color register displayed. 
+
+It has been reported that the dot can be smaller than 1 pixel, and that
+it does not show or randomly appears on some machines.
+
+[T:greydot]
