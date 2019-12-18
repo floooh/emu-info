@@ -1,0 +1,655 @@
+<html><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" type="text/css" href="THE%206561%20Video%20Interface%20Chip%20(VIC)_files/style.css">
+<title>THE 6561 Video Interface Chip (VIC)</title>
+</head>
+<body>
+
+<div id="container">
+ <div id="top">
+ <img src="THE%206561%20Video%20Interface%20Chip%20(VIC)_files/icon-chip-wht.gif" width="52" height="52"> <span class="header">Tiny<span style="color:red">V</span><span style="color:#00ff00">G</span><span style="color:#8040ff">A</span>.com: VGA Microcontroller projects</span>
+    </div><!-- /top -->
+
+<h1>THE 6561 Video Interface Chip (VIC)</h1>
+<p>
+
+Typed in by Lance Ewing
+</p><p>
+ Note: There seems to be two different VIC chips that were used in different 
+ models of the VIC 20. These are the 6560 and the 6561. Their functionality
+ appears to be the same so I will only refer to the 6561.
+</p><p>
+ The Video Interface Chip, or VIC as it is normally called, is the second
+most important silicon chip in the VIC 20 microcomputer. It comes second only
+to the 6502A microprocessor itself.
+</p><p>
+ The VIC is a specially constructed input-output chip (I/O) that has a large
+variety of functions but it's major function is, as its name suggests, the
+production of the video output signal.
+</p><p>
+ The VIC appears to the microprocessor, and the user, as an addressable block
+of RAM of 16 locations, $9000-$900F. Each of these locations can be filled or
+copied, as applies to any other locations that are actually available, with 
+the actions of the VIC being dependant on the values that are placed in the 
+16 locations.
+
+
+</p><h2>6561 PIN CONFIGURATION</h2>
+<pre>                          ___________________
+                         |                   |
+               not used -|1                40|- +5V
+                         |                   |
+       Composite colour -|2                39|- Clock-in phase-1
+                         |                   |
+      Sync. &amp; luminance -|3                38|- Clock-in phase-2
+                         |                   |
+             READ/WRITE -|4                37|- Light pen
+                         |                   |
+                   VD11 -|5                36|- Clock-out. Not used.
+                         |                   |
+                   VD10 -|6                35|- Clock-out phase-1
+                         |                   |     
+                    VD9 -|7                34|- A13
+                         |                   |
+                    VD8 -|8                33|- A12
+                         |                   |
+                     D7 -|9                32|- A11
+                         |                   |
+                     D6 -|10               31|- A10
+                         |                   |
+                     D5 -|11               30|- A9
+                         |                   |
+                     D4 -|12               29|- A8
+                         |                   |
+                     D3 -|13               28|- A7
+                         |                   |
+                     D2 -|14               27|- A6
+                         |                   |
+                     D1 -|15               26|- A5
+                         |                   |
+                     D0 -|16               25|- A4                            
+                         |                   |
+                  POT X -|17               24|- A3 
+                         |                   |      
+                  POT Y -|18               23|- A2 
+                         |                   |
+        Composite sound -|19               22|- A1 
+                         |                   |     
+                    GND -|20               21|- A0 
+                         |___________________|
+
+ Pin 1: Not connected.
+ Pin 2: The composite colour line of the video output.
+ Pin 3: The syncronisation and luminance line of the video output.
+ Pin 4: The video read/write line that is at logic 1 when data is being read
+        from the colour or video RAM.
+ Pins 5-8: The lines of the special colour data bus.
+ Pins 9-16: The eight lines of the ordinary data bus.
+ Pin 17: The input line for potentiometer X.
+ Pin 18: The input line for potentiometer Y.
+ Pin 19: The composite sound line of the audio output.
+ Pin 20: GND
+ Pins 21-34: The 14 address lines of the VIC.
+ Pin 35. The clock-out line that becomes the external time base for the
+         6502A microprocessor.
+ Pin 36: The system phase-2 clock-out line. Not connected.
+ Pin 37: Light pen input line.
+ Pin 38: Clock-in line from the master clock - phase-2 time.
+ Pin 39: Clock-in line from the master clock - phase-1 time.
+ Pin 40: +5V.
+
+
+<h2>THE RELATIONSHIP BETWEEN THE MICROPROCESSOR AND THE VIC</h2>
+
+                                       A13 = "BLOCK 4"
+             14 line address bus      a 13 lower address line
+           ____________________________________________________
+          |                        &gt;                           |
+          |     __________________________________________     |
+        __|____|__                                      __|____|__
+       |          |                             $9000  |__________|
+       |          |                             $9001  |__________|
+       |          |                               .    |     .    |
+       |          |                               .    |     .    |
+ 6502A |          |                               .    |     .    | VIC chip
+       |          |                               .    |     .    |
+       |          |                               .    |__________|
+       |          |                             $900E  |__________|
+       |__________|                             $900F  |__________|
+           |  |_____________________________________________|  |
+           |                       &lt;  &gt;                        |
+           |___________________________________________________|
+                              8 line data bus
+
+
+ The above diagram shows the relationship between the microprocessor and the
+VIC as being the normal one of 'microprocessor and memory linked by address
+and data buses' but this applies only in system phase-2 time.
+
+ The timing signals in the VIC 20 are somewhat complicated but they can be
+explained in quite simple terms.
+ The master clokc generates a two phase output at 1.1082 Mhs. The signals
+are then used as the 'external time base' for the VIC so that the actions
+that take place on the VIC can be timed correctly. The VIC in turn reproduces
+the two phase timing signal on one of its output lines which is then used as
+the 'external time base' for the 6502A microprocessor. However the final stage
+has not as yet been reached as the 6502A microprocessor in its turn reproduces
+the timing signals on one of its output lines so that the timing signals can
+be used as 'chip select' lines for the RAM chips and I/O chips, but of course
+not the VIC.
+ Overall, in system phase-2 time the 6502A microprocessor is in communication
+with its memory, whilst in system phase-1 time, it is the VIC that is linked
+with the memory. The following memory can be addressed by the VIC chip:
+
+   -Video RAM
+   -Colour RAM
+   -Character RAM/ROM
+
+ The 14 line address line can address 16K of memory. The VIC chip uses 
+different addresses to the rest of the computer. The table below illustrates
+the differing addresses for the memory blocks the VIC chip can access:
+
+  VIC chip addresses    Ordinary addresses memory
+
+        0                  32768  Unreversed Character ROM
+     1024                  33792  Reversed Character ROM
+     2048                  34816  Unreversed upper/lower case ROM
+     3072                  35840  Reversed upper/lower case ROM
+     4096                  36864  VIC and VIA chips
+     5120                  37888  Colour memory
+     6144                  38912  Reserved for expansion
+     7168                  39936  Reserved for expansion
+
+     8192                      0  System memory
+     9216                   1024  Reserved for expansion
+    12288                   4096  Program
+    15360                   7168  Screen 
+
+</pre>
+<h2>THE VIDEO RAM</h2>
+
+ This is the area of RAM which holds the screen codes of the characters 
+currently on the screen. The values poked into screen memory act as pointers
+into character memory. They are NOT the ASCII values of the characters. In
+the unexpanded VIC 20 the operating system automatically allocates the area
+of RAM from $1E00-$1FFF for this purpose. However, when extra RAM is added
+to the system to the system at $2000 it becomes necessary to change the
+allocation of the video RAM to the area $1000-$11FF. The reason for having to
+move the video RAM is simply that the program area must be a continuous block
+of RAM. In the unexpanded system the program area is at $1000-$1DFF, with a 
+standard 3K RAM pack it is at $0400-$1DFF, and with a standard 8K RAM pack it
+is at $1200-$3FFF.
+<p>
+ The VIC 20 system uses a display of 22 characters per line and has 23 lines.
+Therefore the video RAM has to be 506 locations in size. In practice with 512
+locations allocated there are always siz locations that are unused.
+ The system variable $0288, decimal 648, is used by the operation system to
+hold the high byte of the current base address of the video RAM and in an
+unexpanded VIC 20 the value in this location is 30 which corresponds to the
+base address of $1E00. Interesting effects can be obtained by altering the 
+value of this location.
+
+
+</p><h2>THE COLOUR RAM</h2>
+ In an unexpanded VIC 20 the 512 locations in memory from $9600-$97ff are 
+used as the colour RAM, whereas if an *K expansion RAM is fitted, the block
+$9400-$95ff is used instead. In either case the locations used are only four
+bits in size instead of the usual eight bits in size.<p>
+ The different locations are used to hold the appropriate foreground colour
+for each character area of the display on the TV screen. There is, therefore,
+a direct correspondence between the locations of the video RAM, the character
+table and the colour RAM.</p><p>
+ In the VIC 20 system there are eight foreground colours and each colour has
+its own representation for the lower three bits of the locations of colour
+RAM.</p><p>
+ eg. If the value of the three bits is '000' then the colour for that
+character area will be black.
+</p><p>
+
+ The colours and their representations are:
+
+</p><pre>   BLACK            000
+   WHITE            001
+   RED              010
+   CYAN             011
+   PURPLE           100
+   GREEN            101
+   BLUE             110
+   YELLOW           111
+
+ The fourth bit (bit 3) of each location is used to indicate if multicolour
+is to be used (discussed later).
+ It is interesting to note that the VIC has a special four line data bus that
+links the colour RAM to the VIC itself that is used solely to convey the 
+colour data to the VIC.
+ 
+ The address of Colour RAM can be determined by looking at Bit 7 of location
+$9002. If this bit is 1, colour memory starts at location 38400. If this bit
+is 0, colour memory starts at location 37888. Use the following formula:
+
+      C = 37888 + 4 * ( PEEK ( 36866 ) AND 128 )
+
+
+THE INTERNAL REGISTERS OF THE VIC
+
+ CR0: $9000 - decimal 36864. Usual value decimal 12.
+ A dual function register.
+ Function 1: Bit 7 selects insterface scan mode for the TV.
+ Function 2: Bits 0-6 determine the distance from the left hand side of the
+             TV picture to the first column of characters.
+  Note: On most modern TV sets the effect of selecting the interface scan mode
+  is to produce a light rippling on the screen.
+
+ CR1: $9001 - decimal 36865. Usual value decimal 38.
+ A single function register.
+ All the bits of this register are used to determine the distance from the
+ top of the TV picture to the first line of characters.
+
+ CR2: $9002 - decimal 36866. Usual value decimal 150.
+ A dual function register.
+ The first seven bits fo this register determine the number of columns in
+ the TV display. Normally this will be the expected value of 22.
+ Bit 7 of this register is used to hold the value for line 9 of the address
+ for the video RAM. On an unexpanded VIC 20 as the address of the Video
+ RAM is $1E00 and therefore this bit 7 is set, however when the video RAM is
+ moved to $1000 then bit 7 becomes reset.
+
+ Note: Bit 7 of this register also indicates where the Colour RAM starts. If
+ this bit is 1, colour memory starts at location 38400. If this bit is 0,
+ colour memory starts at location 37888. Use the following formula:
+
+      C = 37888 + 4 * ( PEEK ( 36866 ) AND 128 )
+
+ CR3: $9003 - decimal 36867. Usual value 174.
+ A triple function register.
+ Bit 7 holds the lowest bit of TV raster counter and is therefore alternately
+ set and reset.
+ Bits 1-6 of this register determine the number of rows in the TV display.
+ The value of these bits will normally be 23.
+ Bit 0 is very special as it controls whether normal sized characters or 
+ double sized characters are to be displayed. The normal size for a character
+ is 8*8 pixels and is slected by bit 0 being reset, however double sized
+ characters, 16*8 pixels, can be selected by having this bit set. 
+  The facility for being able to use double sized characters is not very 
+ useful on an unexpanded VIC 20 as there is insufficient RAM to define a
+ reasonable number of double sized characters.
+
+ CR4: $9004 - 36868. No usual value.
+ This register, together with bit 7 of CR3, forms the TV raster counter. On
+ a 625 line TV this register will count between 0 and 255, and the whole
+ counter between 0 and 311.
+ 
+
+ CR5: $9005 - 36869. Usual value 240.
+ A dual function register.
+ Bits 4-7 holds the values of the topmost four address lines for the Video
+ RAM and bits 0-3 the corresponding values for the character table.
+ Of all these values bits 0 &amp; 7 have a special significance, as whenver
+ this bit is set the memory slected will be in 'block 0', i.e. from $0000-
+ $1FFF, and when reset in 'block 4', i.e. from $8000-$9FFF.
+ In normal operation of a VIC20 this register holds the value 240 decimal
+ and this leads to the Video RAM being situated at $1E00 and the character
+ table at $8000. These addresses are found as follows:
+
+ Video RAM - bit 7 is set, thereby addressing 'block 0'.
+ -Address lines A12, A11, A10, and A9 are all set and the full address is
+ $1E00 as A13, A14, and A15 are reset for 'block 0'.
+
+ Character table - bit 3 is reset, thereby addressing 'block 4'.
+ -Address lines A12, A11 and A10 are all reset and the full address is
+ $8000 as A15 is set and A13 and A14 are reset for 'block 4'.
+
+ CR6: $9006 - 36870. Usual value 0.
+ This register is used in conjunction with the light pen and holds the
+ horizontal postion.
+
+ CR7: $9007 - 36871. Usual value 1.
+ The vertical position of the light pen.
+
+ CR8: $9008 - 36872. Usual value 255.
+ The counter for potentiometer 1.
+
+ CR9: $9009 - 36873. Usual value 255.
+ The counter for potentiometer 2.
+
+ CRA: $900A - 36874. Usual value 0.
+ This register controls 'speaker-1'. Bit 7 is the on/off control bit, whilst
+ bits 0-6 select the actual note. Speaker 1 has an alto voice.
+
+ CRB: $900B - 36875. Usual value 0.
+ This register controls 'speaker-2', the tenor voice.
+
+ CRC: $900C - 36876. Usual value 0.
+ This register controls 'speaker-3', the soprano voice.
+
+ CRD: $900D - 36877. Usual value 0.
+ This register controls 'speaker-4', the noise voice.
+
+ CRE: $900E - 36878. Usual value 0.
+ A dual purpose register.
+ Bits 0-3 form the counter for the volume control of the four speakers.
+ When all the bits are reset the volume control is off and when all the bits
+ are set the volume control is fully on.
+ Bits 4-7 hold the users slection of the auxiliary colour which is only used
+ when multicolour is switched on (discussed later).
+
+ CRF: $900F - 36879. Usual value 27.
+ This is the main colour selecting register of the VIC and has three distinct
+ functions.
+ Bits 0-2 are used to hold the border colour. In the VIC 20 there are eight
+ colours that can be border colours and these are:
+
+     0 - 000   Black
+     1 - 001   White
+     2 - 010   Red
+     3 - 011   Cyan
+     4 - 100   Purple
+     5 - 101   Green
+     6 - 110   Blue
+     7 - 111   Yellow
+
+ These border colours can be selected by putting the required value into the
+ bits 0-2 of control register CRF.
+ Bit 3 is the reverse field control bit. At any time the state of this bit
+ can be changed to reverse the whole display.
+ Bits 4-7 hold the background colour for the display. There are 16 possible
+ colours and the following tble fives the colours together with their codes.
+ Note that these codes are the same for the auxiliary colours as used in the
+ multicolour mode.
+
+     0 - 0000   Black
+     1 - 0001   White
+     2 - 0010   Red
+     3 - 0011   Cyan
+     4 - 0100   Purple
+     5 - 0101   Green
+     6 - 0110   Blue
+     7 - 0111   Yellow
+     8 - 1000   Orange
+     9 - 1001   Light orange
+    10 - 1010   Pink
+    11 - 1011   Light cyan
+    12 - 1100   Light purple
+    13 - 1101   Light green
+    14 - 1110   Light blue
+    15 - 1111   Light yellow
+
+
+CHARACTER TABLE MEMORY
+
+ The standard character table generator of the VIC 20 is a 4K ROM chip that
+occupies the block of memory from $8000-$8FFF. This ROM holds the 8x8 matrix
+representations of all the characters that can be displayed on the TV screen.
+A single character requires 8 locations, each holding 8 bits, in order to
+have all its points defined.
+ In the VIC 20 system there are a possible 128 different characters and the
+first 1K of the 4K ROM holds the straight forward representations for each
+character. The second 1K holds the 'inverse' representations.
+
+ 8000-83FF    32768-33791   Upper case and graphics
+ 8400-87FF    33792-34815   Reversed upper case and graphics
+ 8800-8BFF    34816-35839   Upper and lower case
+ 8C00-8FFF    35840-36863   Reversed upper and lower case
+
+ In order to get lower case letters it has been necessary to have another
+2K of representations of the characters. Once again the first 1K holds the
+straight forward representations and the second 1K holds the 'inverted'
+representations as shown in the memory map above.
+ In the VIC 20 it is possible to change the area of memory that is used to
+hold the character table and to change the character representations from
+the normal 8x8 matrix to one of 8x16. The second feature is the double
+height character mode referred to in the discussion of the VIC registers
+themselves.
+ The first block of character memory - upper case and graphics - occupies
+the ROM locations 32768-34815. The second block - lower and upper case -
+occupies the ROM locations 34816-36863.
+ Characters are displayed as patterns of dots. Each character position on
+the screen is composed of an 8x8 sqaure of dots (pixels). Character memory
+contains the information which tells the computer which dots to turn on or
+off for a particular character. If a bit is 1, the dot is on (displayed
+in character colour). If it is 0, the dot is off (displayed in background
+colour). Therefore, to cover 64 dots, each character representation takes
+8 bytes of memory.
+
+ eg. The character "A"
+
+           128  64  32  16  8   4   2   1
+
+            0   0   0   1   1   0   0   0               24
+            0   0   1   0   0   1   0   0               36
+            0   1   0   0   0   0   1   0               66
+            0   1   1   1   1   1   1   0              126
+            0   1   0   0   0   0   1   0               66
+            0   1   0   0   0   0   1   0               66
+            0   1   0   0   0   0   1   0               66
+            0   0   0   0   0   0   0   0                0
+
+ As mentioned earlier, the screen codes act as pointers into character
+memory. The screen code for A is 1. Its 8 bytes of data is therefore stored
+at 32768 + (8*1) = 32776. So the values 24, 36, 66, 126, 66, 66, 66, 0 are
+stored from 32776 to 32783.
+ In general, to find the starting address of the representation of a
+character with screen code X use:
+  32768 + (8*X)   for character set 1
+  34816 + (8*X)   for character set 2
+ You can change from one character set to the other from the keyboard by
+using the CBM and shift key, or by changing the value of the character
+memory pointer - byte 36869. Its value is normally 240 (upper case and
+graphics) or 242 (upper case and lower case).
+
+
+DESIGNING YOUR OWN CHARACTERS
+
+ Since the built in character sets are in ROM you cannot directly change
+them. However, as you have seen, the character memory pointer can be
+changed. So the secret to using a character set you design yourself is to
+change the pointer to point to your character set.
+
+ First, however, you must design your characters. This is usually done with
+a piece of graph paper representing the 8x8 matrix. Fill in the squares you
+want and then calculate the values as shown above for the character "A".
+ It is usual to copy some of the built in character set into RAM and then
+change those characters you wish to.
+
+
+ACCESSING BOTH CUSTOM AND BUILT-IN CHARACTER SETS
+
+ If you have redesigned most of the characters in your custom character set,
+displaying understandable messages can be a problem.
+ One solution to this makes use of the fact that the VIC chip sees addresses
+differently to the rest of the computer. If you place the custom character
+set at 7168-7679, then printing RVSON within a string will cause the VIC chip
+to access the unreversed character set in ROM when printing that string.
+ The reasons for this are as follows:
+ The VIC chip can only access 16384 bytes, which it sees as a contiguous
+block from 0 to 16383. To it the location of the custom character set is
+15360. Since RVS ON sets the high bit of a character's screen code, all
+reversed characters have screen codes of 128 up. To access a character with
+code 128 the VIC chip goes to location 15360 + (128*8) = 16384. Since the
+VIC chip cannot access 16384 the address "overflows" and wraps around to 0,
+which the VIC chip sees as the address of the start of character ROM. This
+just happens to be the location of the unreversed straight forward, every
+day representations.
+
+
+HIGH RESOLUTION GRAPHICS
+
+
+
+
+MOS 6560/6561 VIC-I Video Interface Circuit documentation
+
+This document is Copyright . 1995-1996 Marko M�kel�
+<marko.makela@hut.fi>.  This document may be reproduced in whole,
+provided that everything, including this copyright message, is
+included.  Any updated versions of this file will be available from
+http://www.funet.fi/pub/cbm/documents/chipdata/.
+
+The 6560 pinout and most of the register map were quoted from the
+Commodore VIC-20 Programmer's Reference Guide, and the register map
+and other parts of this document were enhanced with the results got by
+measuring the 6560-101 and 6561-101 chips.  Thanks to Miguel Gordillo
+for his help in measuring the NTSC-M screen size.
+
+Comparison of the known VIC-20 video chips (summary)
+
+Chip            6560-101        6561-101
+System          NTSC-M          PAL-B
+Cycles/line     65              71
+Lines/frame     261             312
+- interlaced    525             -
+Crystal         14318181 Hz     4433618 Hz
+Bus clock       crystal/14      crystal/4
+Screen width    210             233
+Screen height   233             284
+- interlaced    ?               -
+                ^ needs to be
+                  measured
+
+6560 pinout (according to the Programmer's Reference Guide):
+
+1 nc
+2 comp colour
+3 sync&amp;lumin
+4 r/w
+5-16 db11-db0
+17 dotx
+18 dot y
+19 comp snd
+20 vss
+21-34 a0-a13
+35 pPhi1
+36 pPhi2
+37 option
+38 Phi2 in
+39 Phi1 in
+40 Vdd
+
+9000 ABBBBBBB
+9001 CCCCCCCC
+9002 HDDDDDDD
+9003 GEEEEEEF
+9004 GGGGGGGG
+9005 HHHHIIII
+9006 JJJJJJJJ
+9007 KKKKKKKK
+9008 LLLLLLLL
+9009 MMMMMMMM
+900A NRRRRRRR
+900B OSSSSSSS
+900C PTTTTTTT
+900D QUUUUUUU
+900E WWWWVVVV
+900F XXXXYZZZ
+
+A: interlace mode (6560-101 only): 0=off, 1=on
+   In this mode, the videochip will draw 525 interlaced lines of 65 cycles
+   per line, instead of the 261 non-interlaced lines in the normal mode.
+   This bit has no effect on the 6561-101.
+B: screen origin X (4 pixels granularity)
+   6560-101: at 22 chars/line, the suitable range is 1 to 8
+             With 22 chars/line, the value 8 will show only 6 pixels of the
+             rightmost column
+   6561-101: at 22 chars/line, the suitable range is 5 to 19
+             With 22 chars/line, the value 20 will show only 5 pixels of the
+             rightmost column
+
+   Both:     If the value B+2*D is greater than CYCLES_PER_LINE-4,
+             the picture will mix up.
+             With the value 0, there is some disturbance on the screen bottom.
+C: screen origin Y (2 lines granularity)
+   6560-101: suitable range is 14 to 130=(261-1)/2,
+             which will display one raster line of text.
+   6561-101: suitable range is 14 to 155=312/2-1
+   Both:     No wraparound
+D: number of video columns
+   6560 range: 0-26 makes sense, &gt;31 will be interpreted as 31.
+   6561-101: 0-29 makes sense, &gt;32 will be interpreted as 32.
+E: number of video rows (0-63)
+   6560-101 practical range: 0-29; at C=14, &gt;=30 gives 29 1/8
+   6561-101 practical range: 0-35; at C=14, &gt;=36 gives 35.
+F: character size (1=8x16, 0=8x8)
+G: current raster line ($9004=raster counter b8-b1, $9003 bit 7 = b0)
+   Vertical blank is on lines 0 through 27.
+H: screen memory location ($9005:7-4 = b13-b10,
+                           $9002:7 = b9 of screen and colour memory)
+I: character memory location (b13-b10)
+* Note that b13 is connected to the inverse of A15 on the Vic-20.
+J: light pen X
+K: light pen Y
+L: paddle X
+M: paddle Y
+N: bass switch,    R: freq f=Phi2/256/(255-$900a)  NTSC: Phi2=14318181/14 Hz
+O: alto switch,    S: freq f=Phi2/128/(255-$900b)  PAL:  Phi2=4433618/4 Hz
+P: soprano switch, T: freq f=Phi2/64/(255-$900c)
+Q: noise switch,   U: freq f=Phi2/32/(255-$900d)
+W: auxiliary colour
+V: volume control
+X: screen colour
+Y: reverse mode
+Z: border colour
+
+multicolour (character colour b7=1)
+00 = screen colour
+01 = character colour
+10 = border colour
+11 = auxiliary colour
+
+Colour codes:
+0 black
+1 white
+2 red
+3 cyan
+4 purple
+5 green
+6 blue
+7 yellow
+8 orange
+9 light orange
+a pink
+b light cyan
+c light purple
+d light green
+e light blue
+f light yellow
+
+Video timing
+
+As the dot clock on the VIC-I is only 4 times the bus clock, the video
+chip has time to read 2 bytes for every 8 pixels it outputs.  All
+memory accesses are performed without blocking the processor, using
+the interleaved bus.  The basic video timing is very simple.  For
+every character the VIC-I is about to display, it first fetches the
+character code and colour, then the character appearance (from the
+character generator memory).  The character codes are read on every
+raster line, thus making every line a "bad line".  When the raster
+beam is outside of the text window, the videochip reads from $001c for
+most time.  (Some videochips read from $181c instead.)  The address
+occasionally varies, but it might also be due to a flaky bus.  (By
+reading from unconnected address space, such as $9100-$910f, you can
+read the data fetched by the videochip on the previous clock cycle.)
+</marko.makela@hut.fi></pre>
+ <div id="navbar">
+   <ul>
+	<li><a href="http://www.microvga.com/" style="background:  #92002E;" rel="microvga">µVGA.com</a></li>
+	<li><a href="http://tinyvga.com/vga-timing" style="background: #1378aa;">VGA Timing</a></li>
+	<li><a href="http://tinyvga.com/faq" style="background: #F7C41F;">FAQ</a></li>
+	<li><a href="http://tinyvga.com/" style="background: #97C41F;">Home</a></li>
+   </ul> 
+</div><!-- /navbar -->
+
+<div id="foot">
+Copyright(c)2008 SECONS Ltd.
+</div>
+<script type="text/javascript">
+var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+</script><script src="THE%206561%20Video%20Interface%20Chip%20(VIC)_files/ga.js" type="text/javascript"></script>
+<script type="text/javascript">
+var pageTracker = _gat._getTracker("UA-4388516-1");
+pageTracker._initData();
+pageTracker._trackPageview();
+</script>
+
+
+</div></body></html>
