@@ -1,0 +1,623 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="GENERATOR" content="Microsoft FrontPage Express 2.0">
+<title>Appendix C</title>
+</head>
+
+<body bgcolor="#000000" text="#C0C0C0">
+
+<p>Versatile Interface Adapter (VIA)</p>
+
+<p>It is essential to gain a full understanding of the 6522 chip
+if it is to be emulated as in the recent BBC and VIC-20
+emulators. At first it all seems a bit complicated but after a
+while things will start to make sense and you'll appreciate how
+powerful and versatile this chip was in it's day. I have included
+all the information I have on the 6522 in this document. </p>
+
+<p>DESCRIPTION </p>
+
+<p>The R6522 VIA adds two powerful, flexible interval timers, a
+serial-to -parallel:parallel-to-serial shift register and input
+latching on the peripheral ports. Handshaking capability is
+expanded to allow control of bidirectional data transfers between
+VIAs in multiple processor systems and between periherals. </p>
+
+<p>Control of peripherals is primarily through two 8-bit
+bidirectional ports. Each of these ports can be programmed to act
+as an input or and output. Peripheral I/O lines can be
+selectively controlled by the Interval Timers to generate
+programmable frequency square waves and/or to count externally
+generated pulses. Positive control of VIA functions is gained
+through its internal register organisation: Interrupt Flag
+Register, Interrupt Enable Register, and two Funtion Control
+Registers. </p>
+
+<p>FEATURES </p>
+
+<ul>
+    <li>Organised for simplified software control of many
+        functions. </li>
+    <li>Compatible with the RS650x and RS651x family of
+        microprocesors (CPUs) </li>
+    <li>Bi-directional, 8-bit data bus for communication with
+        microprocessor. </li>
+    <li>Two Bi-directional, 8-bit input/output ports for
+        interface with peripheral devies.</li>
+    <li>CMOS and TTL compatible input/output periheral ports.</li>
+    <li>Data Direction Registers allow each peripheral pin to act
+        as either an input or an output.</li>
+    <li>Interrupt Flag Register allows the microprocessor to
+        readily determine the source of an interrupt and provides
+        convenient control of the interrupts within the chip. </li>
+    <li>Handshake control logic for input/output peripheral data
+        transfer operations. </li>
+    <li>Data latching on peripheral input/output ports. </li>
+    <li>Two fully-programmable interval timers/counters. </li>
+    <li>Eight-bit Shift Register for serial intergace. </li>
+    <li>Forty-pin plastic or ceramic DIP package. </li>
+</ul>
+
+<p>PIN CONFIGURATION</p>
+
+<pre>	  _____________________
+	  |                   |
+(0V) VSS -|1                40|- CA1
+          |                   |
+     PA0 -|2                39|- CA2
+          |                   |
+     PA1 -|3                38|- RS0
+          |                   |
+     PA2 -|4                37|- RS1
+          |                   |
+     PA3 -|5                36|- RS2
+          |                   |
+     PA4 -|6                35|- RS3
+          |                   |  ___
+     PA5 -|7                34|- RES
+          |                   |
+     PA6 -|8                33|- D0
+          |                   |
+     PA7 -|9                32|- D1
+          |                   |
+     PB0 -|10               31|- D2
+          |                   |
+     PB1 -|11               30|- D3
+          |                   |
+     PB2 -|12               29|- D4
+          |                   |
+     PB3 -|13               28|- D5
+          |                   |
+     PB4 -|14               27|- D6
+          |                   |
+     PB5 -|15               26|- D7
+          |                   |
+     PB6 -|16               25|- P2C (Phase Two Clock from CPU)
+          |                   |
+     PB7 -|17               24|- CS1
+          |                   |  ___
+     CB1 -|18               23|- CS2
+          |                   |
+     CB2 -|19               22|- R/W
+          |                   |  ___
+(5V) VCC -|20               21|- IRQ
+          |___________________|
+</pre>
+
+<p>Register Select Lines (RS0 - RS3): </p>
+
+<blockquote>
+    <p>select the internal VIA register that the processor is
+    accessing.</p>
+</blockquote>
+
+<p>Port Pins (PA0 - PA7, PB0 - PB7): </p>
+
+<blockquote>
+    <p>are the input and output pins which connect to external
+    peripheral and make up the two bi-directional ports. </p>
+</blockquote>
+
+<p>Data Bus (D0 - D7):</p>
+
+<blockquote>
+    <p>used to transmit and receive data, from and into the VIAs
+    internal registers.</p>
+</blockquote>
+
+<p>Chip Select Lines (CS1, ~CS2):</p>
+
+<blockquote>
+    <p>used by the microprocessor to select the chip.</p>
+</blockquote>
+
+<p>Read/Write Line (R/W):</p>
+
+<blockquote>
+    <p>selects whether the microprocessor is reading from a VIA
+    register or writing into a VIA register. LOW = Write, HIGH =
+    Read. </p>
+</blockquote>
+
+<p>Control Lines (CA1, CA2, CB1, CB2):</p>
+
+<blockquote>
+    <p>are the control lines which are used for a wide range of
+    control functions, handshaking, and initiating interrupts. </p>
+</blockquote>
+
+<p>&nbsp;</p>
+
+<p>CONTROL LINES</p>
+
+<p>The control lines are now discussed in more detail. These
+lines can act as interrupt inputs or handshake outputs. They can
+perform a number of different functions determined by the
+Peripheral Control Register (PCR). CA2 and CB2 can act as inputs
+or outputs in a number or modes discussed later, whereas CA1 and
+CB1 can only act as inputs. As an example, the VIC-20 uses the
+controls lines for events such as the restore key being pushed,
+received serial data, and outputs such as turning the cassette
+motor on. </p>
+
+<p>VIA INTERNAL REGISTERS </p>
+
+<p>One VIA chip has 16 internal registers used to control its
+many features. These registers occupy 16 consecutive addresses in
+RAM. The following table gives the offsets of each VIA register.
+All registers are 8-bit: </p>
+
+<p>Register Designation Function offset no. </p>
+
+<blockquote>
+    <p>0 ORA or IRB Output or input register B<br>
+    1 ORA or IRA Output or input register A<br>
+    2 DDRB Data direction register B<br>
+    3 DDRA Data direction register A<br>
+    4 T1C-L T1 low-byte latch or T1 low-byte counter<br>
+    5 T1C-H T1 high-byte counter<br>
+    6 T1L-L T1 low-byte latch<br>
+    7 T1L-H T1 high-byte latch<br>
+    8 T2C-L T2 low-byte latch or T2 low-byte counter<br>
+    9 T2C-H T2 high-byte counter<br>
+    10 SR Shift Register<br>
+    11 ACR Auxiliary Control Register<br>
+    12 PCR Peripheral Control Register<br>
+    13 IFR Interrupt Flag Register<br>
+    14 IER Interrupt Enable Register<br>
+    15 ORA or IRA Identical to offset 1 but no handshake</p>
+</blockquote>
+
+<p>We will now go through each of these registers in turn.</p>
+
+<p>ORB/IRB : OUTPUT REGISTER B/INPUT REGISTER B</p>
+
+<p>This is the first of the peripheral ports called port B. Most
+communication to external peripherals is done through one of the
+two 8-bit ports. Each of the 8 pins making up the ORB/IRA port
+can be set to be an input or an output. DDRB, discussed later,
+defines the directivity of ORB/IRB. If a data line is programmed
+as an output in the DDRB, then the corresponding bit in the ORB
+IRB register decides the logic on the data line. On the
+otherhand, if a line is programmed as an input, the logic state
+received from a device on that line is entred into the IRB. If a
+line is programmed as an input, then any attempt to write into
+that line via ORB is ignored. </p>
+
+<p>ORA/IRA : OUTPUT REGISTER A/INPUT REGISTER A </p>
+
+<p>Smilar to ORB/IRB above. </p>
+
+<p>DDRB/DDRA : DATA DIRECTION REGISTERS </p>
+
+<p>These registers determine the direction of each port pin. The
+eight bits in a data direction register correspond to the eight
+bits in the port registers and are interpreted as follows:</p>
+
+<blockquote>
+    <p>A '1' defines the corresponding pin as an ouput. <br>
+    A '0' defines the corresponding pin as an input.<br>
+    </p>
+</blockquote>
+
+<p>THE TIMERS AND COUNTERS</p>
+
+<p>It is always possible to generate delays (time intervals) by
+loading one or more of the 6502 instruction registers with the
+desired delay number and counting down to zero. This is not
+always satisfactory because it ties up the computer. To provide
+for independent delays and various other pulse counting
+operations, the VIA is equipped with a variety of timers,
+counters and latches. They are useful for generating interrupts
+at regular intervals, triggering external devices or simulating a
+real-time environment. The two timers, T1 and T2, are essentially
+16-bit counters. Each counter occupies two consecutive addresses
+(low and hign byte) but T1, the more complex of the two, has an
+associated 16-bit latch, consequently occupying a further two
+addresses, Before treating the tiners in detail, it is useful to
+begin with an overview of the possibilities on offer. </p>
+
+<p>(1) They may be read or written into as six memory locations,
+four for T1 and two for T2. (See the VIA addresses given earlier
+in this chapter). </p>
+
+<p>(2) Their respective operation modes are governed by bits 5, 6
+and 7 of the Auxiliary Control Register. </p>
+
+<p>(3) Their status, at any time during the counting phase, is
+obtainable by examining bits 5 and 6 in the IFR. By 'status' we
+mean whether or not programmed interval has ended (time out). </p>
+
+<p>(4) To generate a single time interval, a timer is loaded with
+the number of clock pulses required (to generate that interval). </p>
+
+<p>(5) Pulses arriving on PB6 can be counted until they compare
+with a previously loaded number (T2 only). The normal use of PB6
+as one of the eight data lines is, of course, suspended. </p>
+
+<p>(6) T1 can be used to provide continuous time intervals. The
+time interval between pulses will depend on a previously loaded
+number. </p>
+
+<p>(7) A single, or continuous series of pulses can be produced
+on PB7; the pulse width will be dependent on a previously loaded
+number. In this mode, PB7 will not be available as a normal data
+line. </p>
+
+<p>THE T2 TIMER</p>
+
+<p>It is clear from the above overview that T2 is more simple
+than T1. It can only generate simple time intervals or count
+pulses arriving on PB6. Bit 5 of the ACR determines whether the
+counter is decremented by the 6502 system clock or input pulses
+arriving on PB6. </p>
+
+<p>Counter High : T2C-H Counter Low : T2C-L </p>
+
+<pre> ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___
+|   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+| 15| 14| 13| 12| 11| 10| 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|___|</pre>
+
+<p>&nbsp;</p>
+
+<p>Latch Low : T2L-L</p>
+
+<pre>                                 ___ ___ ___ ___ ___ ___ ___ ___
+                                |   |   |   |   |   |   |   |   |
+                                | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+                                |___|___|___|___|___|___|___|___|</pre>
+
+<p>&nbsp;</p>
+
+<p>The low-byte address of T2 is used to write or read the
+low-order byte of the delay number. The T2 interrupt flag is
+automatically cleared on a read action. The high-byte address is
+used to write or read the high-byte of the number. Writing to
+this address completes the timer loading, clears the T2 interrupt
+flag and start the timing operation. On completion of the timing
+interval, the T2 interrupt flag is set (bit 5 of IFR). </p>
+
+<p>Offset 8: </p>
+
+<blockquote>
+    <p>Write T2L-L. Read T2C-L. Clear Interrupt Flag. </p>
+</blockquote>
+
+<p>Offset 9: </p>
+
+<blockquote>
+    <p>Write T2C-H. Transfer T2L-L to T2C-L. Clear Interrupt
+    Flag. Start the timer. Read T2C-H. </p>
+    <p>&nbsp;</p>
+</blockquote>
+
+<p>THE T1 TIMER </p>
+
+<p>This timer has a 16-bit latch as well as the normal 16-bit
+counter. It is also possible to generate an output on PB7. There
+are four different operating modes, depending on bits 6 and 7 in
+the ACR. The choice is single-shot or free-running mode (bit 6)
+and enable or disable PB7 (bit 7). Bit 7=0 will disable PB7
+output. Bit 7=1 will enable PB7 output. Bit 6=0 is one shot mode.
+Bit 6=1 is free-running mode. The addressing details and the
+start and finish of timing are virtually the same as described
+under T2 apart form the different addresses and bit 6, instead of
+bit 5, for the interrupt flag in the IFR. The free-running mode
+is made possible by the provision of a separate 16-bit latch in
+the usual low-byte (T1L), high-byte (T1H) form. These occupy two
+separate addresses. It is possible, therefore, to read or write
+into the latches without affecting the associated timer count. In
+the free-running mode, the number in the latches is automatically
+re-entered into the timer again and the count restarted. This
+makes it possible to generate a wave form of any mark to space
+ratio on PB7. This is because the logic level (HIGH or LOW) on
+PB7 remains fixed within a timing interval but inverts to the
+opposite state during the next interval and so on. </p>
+
+<p>Offset 4:</p>
+
+<blockquote>
+    <p>Write T1L-L; Read T1C-L. Clear interrupt flag. </p>
+</blockquote>
+
+<p>Offset 5:</p>
+
+<blockquote>
+    <p>Write T1L-H and T1C-H. Transfer T1L-L to T1C-L. Clear
+    interrupt flag. Start thetimer. Read T1C-H. </p>
+</blockquote>
+
+<p>Offset 6:</p>
+
+<blockquote>
+    <p>Write T1L-L. Read T1L-L. </p>
+</blockquote>
+
+<p>Offset 7:</p>
+
+<blockquote>
+    <p>Write T1L-H. Clear interrupt flag. Read T1L-H.</p>
+</blockquote>
+
+<p>&nbsp;</p>
+
+<p>SR : SHIFT REGISTER</p>
+
+<p>This register is more suited for serial data transmission.
+Bits 2, 3, and 4 in the ACR determine the behaviour of the SR as
+follows: </p>
+
+<p>ACR Bits Effect on Register </p>
+
+<blockquote>
+    <p>000 Disable SR<br>
+    001 Shift in at Counter 2 rate<br>
+    010 Shift in at system clock rate<br>
+    011 Shift in at external clock rate<br>
+    100 Free running output at Counter 2 rate<br>
+    101 Shift out at Counter 2 rate<br>
+    110 Shift out at system clock rate<br>
+    111 Shift out at external clock rate<br>
+    </p>
+</blockquote>
+
+<p>ACR : AUXILIARY CONTROL REGISTER</p>
+
+<pre>                                         ___ ___ ___ ___ ___ ___ ___ ___
+                                        |   |   |   |   |   |   |   |   |
+                                        | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+T1 control                              |___|___|___|___|___|___|___|___|
+0 = Disable PB7 output ___________________|   |   |   |_______|   |   |
+1 = Enable PB7 output                         |   |       |       |   |
+                                              |   |       |       |   |
+T1 control                                    |   |       |       |   |
+0 = one-shot mode ____________________________|   |       |       |   |
+1 = free-running mode                             |       |       |   |
+                                                  |       |       |   |
+T2 control                                        |       |       |   |
+0 = decrement by 6502 system clock   _____________|       |       |   |
+1 = decrement by input pulses on PB6.                     |       |   |
+                                                          |       |   |
+Used for controlling Shift-register ______________________|       |   |
+(treated separately)                                              |   |
+                                                                  |   |
+Port B input latch  ______________________________________________|   |
+0 = disable latch, 1 = enable latch                                   |
+                                                                      |
+Port A input latch ___________________________________________________|
+0 = disable latch, 1 = enable latch
+</pre>
+
+<p>The only feature of the ACR that hasn't been mentioned yet is
+the latching mentioned above for bit 0 and bit 1. There are two
+variations of input behaviour for Port A and Port B depending on
+whether latching is enabled or disabled. If latching is disabled,
+the level present at an input (i.e. the relevant PB or PA pin) is
+read into IRB or IRA respecitively. If the latch is enabled, the
+level read into IRB is that which existed after the 'last active
+transition' arriving on CB1 (when a pulse of the correct phasing
+and shape hit CB1 input). In other words, if the conditions
+existing now are required, then latch must be in the disabled
+condition. We only enable latching if we require CB1 to act as a
+data-valid signal and we wish to ignore levels arriving after the
+latching. </p>
+
+<p>PCR : PERIPHERAL CONTROL REGISTER</p>
+
+<p>The function of the various bits in the PCR depends on whether
+CB2, and CA2 are inputs or outputs. This is the reason we have
+two diagrams below. Note: CB1 and CA1 are always inputs. </p>
+
+<p>When CB2 or CA2 is an input (bit 7=0 or bit 3=0)</p>
+
+<pre>                                         ___ ___ ___ ___ ___ ___ ___ ___
+                                        |   |   |   |   |   |   |   |   |
+                                        | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+                                        |___|___|___|___|___|___|___|___|
+Determines CB2 direction  ________________|   |   |   |   |   |   |   |
+0 = input, 1 = output                         |   |   |   |___|___|___|
+                                              |   |   |         |
+Active edge of CB2 when it is an input  ______|   |   |         |
+0 = active low, 1 = active high                   |   |         |
+                                                  |   |         |
+When CB2 is an input, decides if it is            |   |         |
+normal or independent        _____________________|   |         |
+0 = normal, 1 = independent                           |         |
+                                                      |         |
+Active edge of CB1               _____________________|         |
+0 = active low, 1 = active high                                 |
+                                                                |
+The same as bits 4-7 but for CA2  ______________________________|
+instead of CB2
+</pre>
+
+<pre>When CB2 or CA2 is an input (bit 7=1 or bit 3=1)</pre>
+
+<pre>                                         ___ ___ ___ ___ ___ ___ ___ ___
+                                        |   |   |   |   |   |   |   |   |
+                                        | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+                                        |___|___|___|___|___|___|___|___|
+Determines CB2 direction  ________________|   |   |   |   |   |   |   |
+0 = input, 1 = output                         |___|   |   |___|___|___|
+                                                |     |        |
+Output Mode   __________________________________|     |        |
+Bit 6 Bit 5                                           |        |
+                                                      |        |
+0 0 Handshake mode                                    |        |
+0 1 Pulse output mode                                 |        |
+1 0 Manual mode : CB2 = LOW                           |        |
+1 1 Manual mode : CB2 = HIGH                          |        |
+                                                      |        |
+Active edge of CB1               _____________________|        |
+0 = active low, 1 = active high                                |
+                                                               |
+The same as bits 4-7 but for CA2 ______________________________|
+instead of CB2
+</pre>
+
+<p>PCR IN MORE DETAIL</p>
+
+<p>We will now define a few of the terms used above. When mention
+is made of the 'active edge', it refers to the setting of the
+appropriate flag in another register (IFR). That is to say, the
+only indication that an acceptable pulse has appeared on CB1,
+CB2, CA1 or CA2 input is the setting of the appropriate flag. The
+terms 'normal' and 'independent' apply only to CB2 and CA2 and,
+even then, only when they are inputs. These terms concern the
+conditions under which the CB2/CA2 flag is reset after it has
+been set. In normal mode, the flag remains set until a READ or
+WRITE instruction on the relevant data input/output port. For
+example, for CB2 it would be ORB/IRB. This is most likely down
+with an LDA or STA. In the independent mode, once a flag is set,
+READ or WRITE does not reset it. </p>
+
+<p>We will now discuss the behaviour of CB2 and CA2 when they are
+outputs. For simplicity I will refer to CB2 only since CA2
+operates identically. Clearly the significance of bits 6 and 5 is
+completely different as can be seen in the diagrams above. </p>
+
+<p>Handshake mode: <br>
+CB2 goes LOW by a write operation on ORB and goes HIGH again on
+an active transition of the CB1 input signal. </p>
+
+<p>Pulse output mode: <br>
+A negative-going pulse (goes from HIGH down to LOW then back
+again) is emitted following a write operation on ORB. Ideal for
+gadgetry which is activated by a negative-going pulse. </p>
+
+<p>Manual mode: <br>
+So called because both levels output on CB2 must be directly
+programmed. The level on CB2 depends on bit 5. If bit 5 is 0, CB2
+remains LOW. If bit 5 is 1, then CB2 is HIGH. In other words,
+providing bit 6 remains at 1, CB2 mirrors the state of bit 5.</p>
+
+<p>&nbsp;</p>
+
+<p>IFR : INTERRUPT FLAG REGISTER</p>
+
+<p>When a signal arrives on CB1, CB2, CA1, or CA2 (when CB2 and
+CA2 are inputs) it sets the appropriate flag to 1 in the IFR. The
+significance of each bit in the IFR is as follows: </p>
+
+<pre>                                         ___ ___ ___ ___ ___ ___ ___ ___
+                                        |   |   |   |   |   |   |   |   |
+                                        | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+                                        |___|___|___|___|___|___|___|___|
+                                          |   |   |   |   |   |   |   |
+General interrupt status bit              |   |   |   |   |   |   |   |
+1 if any interrupt active and enabled  ___|   |   |   |   |   |   |   |
+0 when interrupt condition cleared            |   |   |   |   |   |   |
+				              |   |   |   |   |   |   |
+Timer 1 flag                                  |   |   |   |   |   |   |
+1 when time out                         ______|   |   |   |   |   |   |
+0 after reading T1 low-byte counter or            |   |   |   |   |   |
+writing T1 high-byte latch                        |   |   |   |   |   |
+                                                  |   |   |   |   |   |
+Timer 2 flag                 _____________________|   |   |   |   |   |
+Behaves similar to T1 above                           |   |   |   |   |
+                                                      |   |   |   |   |
+CB1 flag                           ___________________|   |   |   |   |
+Cleared by a read or write of ORB                         |   |   |   |
+                                                          |   |   |   |
+CB2 flag                           _______________________|   |   |   |
+Cleared by a read or write of ORB                             |   |   |
+                                                              |   |   |
+Shift register flag                                           |   |   |
+1 at end of 8 shifts            ______________________________|   |   |
+Cleared by read or write of SR                                    |   |
+                                                                  |   |
+CA1 flag.                          _______________________________|   |
+Cleared by a read or write of ORA                                     |
+                                                                      |
+CA2 flag.                          ___________________________________|
+Cleared by a read or write of ORA
+</pre>
+
+<p>It is possible, and sometimes desirable, to clear directly one
+or more of the flags in the IFR. This is done (rather strangely)
+by writing '1's into the flag positions to be cleared. Direct
+clearing in this manner will normally be required when the
+control line inputs are being used for purposes other than 6502
+involvement - inparticular, when using the manual mode (refer
+back to PCR). Bit 7 is the general interrupt status and is the
+only flag which cannot be reset (or set) directly. </p>
+
+<p>&nbsp;</p>
+
+<p>IER : INTERRUPT ENABLE REGISTER</p>
+
+<p>The bits in this register correspond exactly as describe above
+for the IFR register. It represents a last ditch stand between
+the various interrupt request sources and the 6502 IRQ input pin.
+For example, there may have been and active signal arriving on,
+say, CB1. This will have set the CB1 flag in the IFR. However,
+there may already be another flag or flags set. The 6502 can only
+accept one interrupt at a time so there is clearly a need for
+higher status register which can be programmed to select which
+flag is to be recognised (enabled). This is the role of the IER.
+It operates as follows: </p>
+
+<p>Bit 7:<br>
+Like bit 7 in the IFR, this bit is special.<br>
+When bit 7 = 0: Each 1 in a bit poisition is cleared (disabled).<br>
+When bit 7 = 1: Each 1 in a bit position enables that bit.<br>
+(Zeros in bit positions are left unchanged)</p>
+
+<p>This isn't so easy to understand. Here are some examples which
+may help:</p>
+
+<p>(1) Enable CB1 interrupt and disable all others:</p>
+
+<pre>LDA #&amp;6F 	\0110 1111
+STA IER 	\Bit 7 = 0 so 1's disabled
+LDA #&amp;90 	\1001 0000
+STA IER 	\Bit 7 = 1 so bit-4 enabled
+</pre>
+
+<p>Note that the second pattern is the logical complement of the
+first. This is not a coincidence.</p>
+
+<p>(2) Enable Timer 1, disable the rest and then clear the T1
+flag bit in the IFR.</p>
+
+<pre>LDA #&amp;3F	 \Disable all others
+STA IER
+LDA #&amp;C0	 \1100 0000 to enable T1
+STA IER
+STA IFR		 \Reset T1 flag in IFR
+</pre>
+
+<pre>ORA\IRA 	: NO HANDSHAKE
+</pre>
+
+<p>This means that writing or reading to this address has no
+affect on the control lines as it would do for the normal
+ORA\IRA. Apart from that the two addresses behave identically.</p>
+
+<p>&nbsp;</p>
+</body>
+</html>
