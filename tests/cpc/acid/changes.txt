@@ -1,0 +1,29 @@
+re-verified fdc_seek on d765a
+
+disc\fdc_time
+- added timing from end of sector data to end of execution phase with read data
+- added timing from end of sector data to end of execution phase with write data
+- added timing from overrun triggered to end of execution phase with read data
+- added timing from overrun triggered to end of execution phase with write data
+- added timing from end of execution phase to result phase with read data
+- added timing from end of execution phase to result phase with write data
+
+disc\fdc_seek
+- added recal then seek (recalibrate, short wait, then do a seek)
+- added check for execution phase not set during seek
+- added check for execution phase not set during recalibrate
+
+disc\fdc_read
+- added a test to read x bytes and store, then read and ignore bytes to end of sector
+- added check for execution phase set during read data
+- added check for execution phase set during read deleted
+- added check for execution phase not set during read data in dma mode
+- added check for execution phase not set during read deleted data in dma mode
+
+disc\fdc_gen
+- added ready change during command (write command to fdc read data), turn off disc motor after each command byte)
+- added ready change during result (write command to fdc (read data), turn off disc motor after each result byte)
+- added check for execution phase not set during sense drive status
+- added check for execution phase not set during sense interrupt status
+- added check for execution phase set during read id (dma and non-dma)
+- added check for execution phase not set during invalid command

@@ -1,0 +1,31 @@
+- 4,6,7,9 vertical
+
+Tested:
+
+- TO BE TESTED: R8 set on/off (during frame)
+- TO BE TESTED: R8 set on/off around frame start
+- TO BE TESTED: R8 set on/off during VADJ
+- TO BE TESTED: r9 during R8 to see which lines cause a trigger or not (0,1,2,3 etc)
+
+- R6=0 when LC=0 (crtc_r6d.asm)
+- R6=0 when LC!=0 (crtc_r6d.asm)
+- TO BE TESTED: R6=0 in left/right border
+- TO BE TESTED: R6=0 in upper/lower border
+- TO BE TESTED: How does From Scratch work if my type 1 shows something different.
+- R6=LC (crtc_r6b.asm)
+- R6 during VADJ (crtc_r6c.asm)
+- R9 change during VADJ (crtc_r5e2.asm) to see if MA is triggered
+- R5 and R6 values (crtc_r5.asm)
+- When does R5 trigger (crtc_r5b.asm)
+- R5 change while active (crtc_r5c.asm)
+- R4 change during VADJ (crtc_r5d.asm)
+- R9 affects char heights during VADJ (crtc_r5e.asm)
+- Plus vertical scroll during VADJ (crtc_r5ep.asm)
+- R9 affects char height during VADJ by changing R9 (crtc_r5f.asm)
+- R4 trigger point (crtc_r4.asm)
+- R4 changing to smaller value (crtc_r4b.asm)
+- R7 trigger point (crtc_r7.asm)
+- TO BE TESTED: R7 during vadj
+- R9 trigger (set larger) (crtc_r9.asm)
+- R9 trigger (set smaller) (crtc_r9b.asm)
+

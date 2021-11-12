@@ -1,0 +1,2 @@
+sym2,sym2
+symmouse,symmouse

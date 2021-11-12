@@ -1,0 +1,13 @@
+aleste
+cpc
+crtc
+cpcrom
+kccompact
+keyboard
+monitor
+plus
+ppi
+psg
+snapshot
+z80tests
+

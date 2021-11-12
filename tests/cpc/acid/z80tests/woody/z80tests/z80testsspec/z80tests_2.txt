@@ -1,0 +1,125 @@
+ZX Spectrum +2 GREY 48k mode
+CPU: NEC D780C-1
+
+
+
+DD CB (00-FF)	ROM : D9EB passed
+DD CB (00-FF)	RAM : 90C0 passed
+FD CB (00-FF)	ROM : D9EB passed
+FD CB (00-FF)	RAM : 90C0 passed
+CB (00-FF)	ROM : 4731 passed
+CB (00-FF)	RAM : 15AE passed
+CB (00-FF) 5+3	ROM : 4D19 passed
+CB (00-FF) 5+3	RAM : 1B66 passed
+
+MPTR: LD A,(addr)	: 2FF8 passed
+
+MPTR: LD (addr),A	: 35FC passed
+
+MPTR: LD A,(BC)		: 1F8D passed
+
+MPTR: LD A,(DE)		: 311F passed
+
+MPTR: LD A,(HL)		: 0000 passed
+
+MPTR: LD (BC),A		: 179C passed	
+
+MPTR: LD (DE),A		: 3A08 passed
+
+MPTR: LD (HL),A		: 0000 passed
+
+MPTR: LD HL,(addr)	: 0F0A passed
+
+MPTR: *LD HL,(addr)	: 21DB passed
+ 
+MPTR: LD DE,(addr)	: 347B passed
+
+MPTR: LD BC,(addr)	: 0140 passed
+
+MPTR: LD IX,(addr)	: 2F40 passed
+
+MPTR: LD IY,(addr)	: 0001 passed
+
+MPTR: LD SP,(addr)	: 1978 passed
+
+MPTR: LD (addr),HL	: 3042 passed
+
+MPTR: *LD (addr),HL	: 1A45 passed
+
+MPTR: LD (addr),DE	: 000A passed
+
+MPTR: LD (addr),BC	: 2E98 passed
+
+MPTR: LD (addr),IX	: 0D56 passed
+
+MPTR: LD (addr),IY	: 1912 passed
+
+MPTR: LD (addr),SP	: 0115 passed
+
+MPTR: EX (SP),HL	: 3809 passed
+
+MPTR: ADD HL,BC		: 099B passed
+
+MPTR: ADD IX,BC		: 2A44 passed
+
+MPTR: ADD IY,BC		: 019D passed
+
+MPTR: ADC HL,BC		: 1773 passed
+
+MPTR: SBC HL,BC		: 2446 passed
+
+MPTR: RLD		: 117F passed
+
+MPTR: RRD		: 34AE passed
+
+MPTR: IN A,(port)	: 3100 passed
+
+MPTR: IN A,(C)		: 0AFF passed
+
+MPTR: OUT (port),A	: 2100 passed
+
+MPTR: OUT (C),A		: 3DFF passed
+
+MPTR: LDI		: 0000 passed
+
+MPTR: LDD		: 0000 passed
+
+MPTR: LDIR (BC=1)	: 0000 passed
+
+MPTR: LDIR (BC>1)	: 0007 passed
+
+MPTR: LDDR (BC=1)	: 0000 passed
+
+MPTR: LDDR (BC>1)	: 000E passed
+
+MPTR: CPI		: 0001 passed
+
+MPTR: CPD		: 3FFF passed
+
+MPTR: CPIR (BC=1)	: 0001 passed
+
+MPTR: CPIR (BC>1)	: 0017 passed
+
+MPTR: CPDR (BC=1)	: 3FFF passed
+
+MPTR: CPDR (BC>1)	: 001F passed
+
+MPTR: INI		: 3FFF passed
+
+MPTR: IND		: 3FFD passed
+
+MPTR: INIR		: 01FF passed
+
+MPTR: INDR		: 01FD passed
+
+MPTR: OUTI		: 3F00 passed
+
+MPTR: OUTD		: 01FE passed
+
+MPTR: OTIR		: 0100 passed
+
+MPTR: OTDR		: 00FE passed
+
+
+
+

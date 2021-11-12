@@ -1,0 +1,4 @@
+ide,ide
+ideinfo,ideinfo
+devices,devices
+atapi,atapi

@@ -1,0 +1,9 @@
+snaphalt,halt
+snapim2,im2
+snapdkram,dkram
+snapz80reg,z80reg
+snapcomp,comp
+snapcomp2,comp2
+snapcomp3,comp3
+snapcomp4,comp4
+snapasic,asic

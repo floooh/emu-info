@@ -1,0 +1,126 @@
+The following computer systems were used with these tests. If you are running these
+tests on a real CPC then be sure to note it's full configuration so that the results 
+can be compared correctly. If you have a CPC with a different configuration that shows
+differing results to the tests please contact me and the tests can be updated to include
+that configuration.
+
+---------------------------------------------------------------------------------
+"DDI-1"
+
+NEC D765AC
+40015
+ISS3 MF0004B
+FDC92298T (SMC8429A)
+
+---------------------------------------------------------------------------------
+"6128Plus"
+
+This uses both 3" discs and C4CPC cartridge for testing
+
+MFM only
+/DACK wired to 5V
+Original 2 drive configuration
+EME-157
+SED9420
+Zilog Z7065A
+Z8400AB1
+40489 24380F002 9029EAI (Type 3 CRTC)
+Microchip AY38912
+MC0122C
+
+
+---------------------------------------------------------------------------------
+"GX4000"
+
+This uses a C4CPC cartridge for testing.
+
+Z8400AB1
+Microchip AY38912
+40489 24380F002 9029EAI
+
+
+---------------------------------------------------------------------------------
+"Type 2"
+
+6128
+SGSZ8400AB1
+Original 2 drive configuration
+AMSTRAD40015
+AMSTRAD40025
+TOSHIBA TMP8255AP-5
+AY-3-8912
+MC6845SP (Type 2 CRTC)
+AMSTRAD40010 36AA
+D765AC-2
+FDC9216
+Z70210
+Space for 40007
+
+---------------------------------------------------------------------------------
+"Type 0 with switches"
+
+This has a ABBA drive switch and a side switch fitted.
+
+6128
+ZILOG Z8400APS
+AMSTRAD40015
+AMSTRAD40025
+TOSHIBA TMP8255AP-5
+AY-3-8912
+UM6845 (Type 0 CRTC)
+AMSTRAD40010 36AA
+ZILOG Z765APS
+SED9420C
+Z70290
+
+---------------------------------------------------------------------------------
+"Type 0 without switches"
+
+6128
+SGSZ8400AB1
+AMSTRAD40015
+AMSTRAD40025
+NEC D8255AC-5
+AY-3-8912
+HD6845SP (Type 0 CRTC)
+AMSTRAD40010 36AA
+NEC D765AC-2
+SED9420C
+Z70290
+
+---------------------------------------------------------------------------------
+"Type 1"
+
+6128
+has shielding
+UM6845R (Type 1 CRTC)
+AY-3-8912
+Zilog Z084004PSC
+40010 36AA
+SED9420C
+UM8272A
+z70290
+40015
+40025
+TOSHIBA TMP8255AP-5
+EME-156
+
+
+---------------------------------------------------------------------------------
+"KC Compact"
+
+---------------------------------------------------------------------------------
+"464 with Vortex RAM Expansion"
+
+464
+Internal Vortex 512KB RAM Expansion
+
+---------------------------------------------------------------------------------
+"Type 4"
+
+464
+
+---------------------------------------------------------------------------------
+"464Plus"
+
+464Plus

@@ -1,0 +1,30 @@
+NOTE  DEF file V1.2 compiled for CPCXFS by Frederic Herlem 24/10/2000
+NOTE  ---------------------------------------------------------------
+NOTE  COMMENTS on definitions are made of:
+NOTE  Name Capacity Type Tracks_per_side (trk) Sectors_per_track (sct) 
+NOTE          Dir_entries (dir) Block_size (Kpb) Num_of_sides
+NOTE
+NOTE  Def with around 40trk are for 3" (one side), or 5.25" 48tpi
+NOTE   those with around 60 or 80 tracks are for 3.5" or 5.25" 96tpi
+ 
+
+Note **********************************************************
+Note DATA Type formats definitions (C1h,C2h,C3h, ...) 9sct OFS0
+Note **********************************************************
+
+BEGIN DA1A CPC-STD 178K Data 40trk 9sct 64dir 1Kpb Side 1
+DENSITY MFM,LOW CYLINDERS 40 SIDES 1 SECTORS 9,512 SKEW 5
+SIDE1 0 0c1h, 0c2h, 0c3h, 0c4h, 0c5h, 0c6h, 0c7h, 0c8h, 0c9h
+BSH 3 BLM 7 EXM 0 DSM 179 DRM 63 AL0 0c0H AL1 0 OFS 0
+END
+
+
+BEGIN ZX0 Amstrad ZX Spectrum +3 - SSDD 64dir 1Kpb 180K - 173K user free
+DENSITY MFM,LOW
+CYLINDERS 40
+SIDES 1
+SECTORS 9,512 SKEW 3
+SIDE1 0 1,2,3,4,5,6,7,8,9
+LABEL ZX0
+BSH 3 BLM 7 EXM 0 DSM 174 DRM 63 AL0 00C0H AL1 0 OFS 1
+END

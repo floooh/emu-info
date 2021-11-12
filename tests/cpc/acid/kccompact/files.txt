@@ -1,0 +1,4 @@
+mode3,mode3
+z8536,z8536
+border,border
+vblank,vblank

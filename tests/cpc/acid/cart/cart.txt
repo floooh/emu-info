@@ -1,0 +1,20 @@
+These are various CPR files for testing an emulator can handle them gracefully.
+
+cart_0_pages.cpr - empty cart 
+cart_1p_8k.cpr - 1 single page 8k size (undersize)
+cart_1p_16k.cpr - 1 single page 8k size (normal size)
+cart_1p_20k.cpr - 1 single page 8k size (oversize)
+cart_1_pages.cpr..cart_31_pages.cpr - all possible number of pages
+cart_5p_2k.cpr - 5 cart pages each are 2k size (undersize)
+
+system_en_size_too_short.cpr - Main riff header size is shorter than actual file length (all blocks have valid lengths)
+(example: CPC-Power used to add extra to the end of the file)
+
+system_en_size_too_large.cpr - Main riff header size is longer than actual file length (all blocks have valid lengths)
+
+system_en_page_cut.cpr - Main riff header size is correct, block length says 16KB, but actual size is less (it exceeds the end of the file)
+
+system_en_cb00_reporting_large.cpr - Main riff header size is correct. cb00 is reporting larger size (&6000 which is more than 1 block but less than 2)
+
+system_en_cb00_reporting_large2.cpr - Main riff header size is correct. cb00 is reporting larger size (&8008 which is the size of 2 blocks of data and 1 riff header so that cb01 is effectively skipped, but the others are present)
+

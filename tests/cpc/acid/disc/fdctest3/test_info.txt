@@ -1,0 +1,104 @@
+0 recalibrate test (equipment check after 77 tracks; requires 80 track drive)
+1 recalibrate when not ready
+2 recalibrate setting side 2
+3 seek fdd busy flags in main status register
+4 seek fdc busy in main status register
+5 seek track (fdd goes busy on same track or not)
+6 do a seek, wait for it to finish then do a read (no sense interrupt status used)
+7 do a long seek and attempt read data immediately
+8 check if fdd busy is cleared after seek without sense interrupt status
+9 do a long seek then a short seek on same drive
+10 attempt seek when not ready
+11 attempt a seek but change ready (I think by turning on/off drive motor)
+12 attempt a seek setting side 2
+13 do a seek, use sense interrupt status to see it has completed, then do one more sense interrupt status
+14 enable motor, wait for ready, turn off and do sense interrupt status
+15 read data
+16 read data different c value
+17 read data different h value
+18 read data different n value
+19 read data (using dtl)
+20 read data with data error
+21 read data with not ready
+22 read data followed by sense interrupt status
+23 read data with eot
+24 read data on unformatted track
+25 read data no skip
+26 read deleted data sectors with skip starts and ends on a deleted data sector
+27 read deleted data; only 1 sector and that has data in it
+28 read deleted data, first is deleted, second is data
+29 read deleted data, first is data, second is deleted, third is data
+30 read data, and skip deleted data sectors
+31 read data; only 1 sector and that has deleted data in it
+32 read deleted data sector using data command
+33 read data sector using deleted data command
+34 read track: read first sector from track, comparison must succeed
+35 read track: read first sector from track, comparison must fail
+36 read track: read first sector from track, comparison must fail
+37 read track: read more than the number of sectors on the track
+38 read track:  EOT is 0
+39 read track: see how C,H,R,N in result is generated
+40 read track: N is 0, and DTL is !=0, and 1 sector is read
+41 read_track10 ?
+42 read track unformatted
+43 read track with skip
+44 read track on deleted data track
+45 read track with multi-track (starting side 0)
+46 read track with multi-track (starting side 1)
+47 read track on track with data error
+48 read track on track with data error (read 2 sectors)
+49 read track (formatted size 2), N in read track as 3
+50 read track but not ready
+51 read data: multi-track operation - same id's on side 0 and side 1 (41-49)
+52 read data: multi-track operation - different id's on side 0 and side 1 (41-49,1-9)
+53 read data: multi-track operation - same id's on side 0 and side 1 (1-9)
+54 read data: multi-track operation - start from side 2
+55 read data: multi-track operation - eot doesn't exist
+56 read data: multi-track operation - small eot (3)
+57 read data: multi-track operation - bad cylinder on second side
+58 read data: multi-track operation - h is 1 on side 0
+59 read data: multi-track operation - h is 0 on side 1
+60 read data: multi-track operation - h value is &fe on one side &ff on other
+61 read data: read data overrun
+62 write data test
+63: write data test c
+64: write data test_write_rc
+65: write deleted data mark
+66: write test when not ready
+67: write test with multi-track
+68: write test with skip
+69: write test overrun
+70: test read id on a unformatted track
+71: test read id " "
+72: read id of formatted track using low density
+73: read id on track with data error
+74: read id when not ready
+75: read id but ready will change state
+
+76:  read data from formatted track using low density
+77: bad_cylinder
+78: bad2_cylinder
+79: bad3_cylinder
+80: bad4_cylinder
+81: write on wrong cylinder
+82: write on bad cylinder
+
+
+83:  specify
+
+84: nodata1
+85: invalid
+86: drive_status : ready/not ready
+87: drive status: track 0/not track 0
+88: sync_start_of_track
+89: format test
+90: format, not ready
+
+91: check_dtl_00
+92: check_dtl1
+93: check_dtl2
+94: check_dtl3
+
+95: scan_equal			;; comparison must be equal
+96: format different sector sizes, read back to get sector sizes
+

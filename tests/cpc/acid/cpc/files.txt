@@ -1,0 +1,16 @@
+colours,colours
+cpcborder,border
+cpccol,col
+cpcpen2,pen2
+cpcpen,pen
+cpctest,cpctest
+hblank,hblank
+cpctest,cpctest
+iocol,iocol
+lumfirm,lumfirm
+modetrig,modetrig
+onlyincpc,onlyin
+vblank,vblank
+vblank2,vblank2
+video_test,vidtest
+

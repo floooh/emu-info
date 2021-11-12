@@ -1,0 +1,84 @@
+; Start &9f5c
+; End &9fdb
+; Length: &007f
+9F5C:           LD HL,#A200
+9F5F:           LD (HL),#A0
+9F61:           INC HL
+9F62:           LD (HL),#A1
+9F64:           LD E,L
+9F65:           LD D,H
+9F66:           INC DE
+9F67:           DEC HL
+9F68:           LD BC,#00FF
+9F6B:           LDIR
+9F6D:           LD A,#A2
+9F6F:           LD I,A
+9F71:           IM 2
+9F73:           EI
+9F74:           HALT
+9F75:           DI
+9F76:           IM 1
+9F78:           OR A,A
+9F79:           RET NZ
+9F7A:           LD B,#F5
+9F7C:           IN A,(C)
+9F7E:           RRA
+9F7F:           JR NC,#9F7C
+9F81:           IN A,(C)
+9F83:           RRA
+9F84:           JR C,#9F81
+9F86:           IN A,(C)
+9F88:           RRA
+9F89:           JR NC,#9F86
+9F8B:           EI
+9F8C:           HALT
+9F8D:           LD HL,#004B
+9F90:           DEC HL
+9F91:           LD A,H
+9F92:           OR A,L
+9F93:           JR NZ,#9F90
+9F95:           IN A,(C)
+9F97:           RRA
+9F98:           JR C,#9FAF
+9F9A:           LD BC,#BC0C
+9F9D:           OUT (C),C
+9F9F:           LD A,#29
+9FA1:           INC B
+9FA2:           OUT (C),E
+9FA4:           INC B
+9FA5:           IN A,(C)
+9FA7:           CP A,E
+9FA8:           JR NZ,#9FAD
+9FAA:           LD A,#04
+9FAC:           RET
+9FAD:           XOR A,A
+9FAE:           RET
+9FAF:           HALT
+9FB0:           HALT
+9FB1:           HALT
+9FB2:           DI
+9FB3:           IN A,(C)
+9FB5:           RRA
+9FB6:           JR NC,#9FB3
+9FB8:           LD BC,#BC02
+9FBB:           OUT (C),C
+9FBD:           LD BC,#BD32
+9FC0:           OUT (C),C
+9FC2:           EI
+9FC3:           HALT
+9FC4:           HALT
+9FC5:           HALT
+9FC6:           HALT
+9FC7:           HALT
+9FC8:           HALT
+9FC9:           HALT
+9FCA:           LD B,#F5
+9FCC:           IN A,(C)
+9FCE:           RRA
+9FCF:           LD BC,#BD2E
+9FD2:           OUT (C),C
+9FD4:           JR NC,#9FD9
+9FD6:           LD A,#01
+9FD8:           RET
+9FD9:           LD A,#02
+9FDB:           RET

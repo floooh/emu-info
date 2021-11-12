@@ -1,0 +1,16 @@
+defw &0000
+defw &0010
+defw &0020
+defw &0030
+defw &0040
+defw &0050
+defw &0060
+defw &0080
+defw &0090
+defw &00a0
+defw &00b0
+defw &00b0
+defw &00d0
+defw &00e0
+defw &00f0
+defw &00f0
